@@ -235,12 +235,7 @@ export default function DoctorBriefPage() {
       {/* Header & Doctor Specialty Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
         <div>
-          <div className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-600/20 flex items-center justify-center font-black text-sm shadow-2xs">
-              4
-            </span>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Doctor Brief</h1>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Doctor Brief</h1>
           <p className="text-xs text-slate-500 mt-1">
             Doctor-ready consultation brief tailored to your physician’s exact specialty.
           </p>

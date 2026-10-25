@@ -2,37 +2,48 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   Activity,
   UploadCloud,
   FileText,
   SlidersHorizontal,
   Database,
-  LogOut,
+  User,
 } from 'lucide-react';
-import { isSupabaseConfigured } from '@/lib/data-service';
-import { isSessionAuthenticated, setSessionAuthenticated } from '@/lib/auth-storage';
+import { isSupabaseConfigured, getStoredProfile } from '@/lib/data-service';
+import { isSessionAuthenticated } from '@/lib/auth-storage';
 
 export default function Navigation() {
   const pathname = usePathname();
-  const router = useRouter();
   const [hasSupabase, setHasSupabase] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
   useEffect(() => {
     setHasSupabase(isSupabaseConfigured());
     setIsAuthenticated(isSessionAuthenticated());
 
-    const handleAuthChange = () => {
-      setIsAuthenticated(isSessionAuthenticated());
+    const syncState = async () => {
+      const authed = isSessionAuthenticated();
+      setIsAuthenticated(authed);
+      if (authed) {
+        const stored = await getStoredProfile();
+        setProfilePhoto(stored?.profile_photo || null);
+      } else {
+        setProfilePhoto(null);
+      }
     };
 
-    window.addEventListener('medtrac-auth-changed', handleAuthChange);
-    window.addEventListener('storage', handleAuthChange);
+    syncState();
+
+    window.addEventListener('medtrac-auth-changed', syncState);
+    window.addEventListener('medtrac-profile-updated', syncState);
+    window.addEventListener('storage', syncState);
     return () => {
-      window.removeEventListener('medtrac-auth-changed', handleAuthChange);
-      window.removeEventListener('storage', handleAuthChange);
+      window.removeEventListener('medtrac-auth-changed', syncState);
+      window.removeEventListener('medtrac-profile-updated', syncState);
+      window.removeEventListener('storage', syncState);
     };
   }, [pathname]);
 
@@ -49,10 +60,7 @@ export default function Navigation() {
     { href: '/brief', label: 'Doctor Brief', icon: FileText },
   ];
 
-  const handleSignOut = () => {
-    setSessionAuthenticated(false);
-    router.push('/');
-  };
+  const isProfileActive = pathname === '/profile';
 
   return (
     <>
@@ -118,29 +126,41 @@ export default function Navigation() {
               })}
             </nav>
 
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-200/80 text-[11px] font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition tap-press"
-              title="Sign out"
+            {/* Profile Navigation Button (Replaces Sign Out) */}
+            <Link
+              href="/profile"
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all tap-press ${
+                isProfileActive
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-[0_2px_8px_rgba(37,99,235,0.25)] font-black'
+                  : 'bg-white border-slate-200/90 text-slate-700 hover:text-slate-900 hover:bg-slate-50 shadow-2xs'
+              }`}
+              title="Profile"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Sign Out</span>
-            </button>
+              {profilePhoto ? (
+                <img
+                  src={profilePhoto}
+                  alt="Profile"
+                  className="w-5 h-5 rounded-full object-cover border border-white/50 shrink-0"
+                />
+              ) : (
+                <User className={`w-3.5 h-3.5 ${isProfileActive ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
+              )}
+              <span>Profile</span>
+            </Link>
           </div>
         </div>
       </header>
 
       {/* Native-Feel Mobile Floating Bottom Navigation Bar */}
       <nav className="no-print sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-2xl border-t border-slate-200/80 px-2 py-1.5 flex items-center justify-around shadow-[0_-4px_24px_rgba(0,0,0,0.05)] pb-safe">
-        {navLinks.map((link) => {
+        {[...navLinks, { href: '/profile', label: 'Profile', icon: User }].map((link) => {
           const isActive = pathname === link.href;
           const Icon = link.icon;
           return (
             <Link
               key={link.href}
               href={link.href}
-              className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl transition-all min-w-[64px] min-h-[46px] active:scale-90 ${
+              className={`flex flex-col items-center justify-center py-1.5 px-2.5 rounded-2xl transition-all min-w-[56px] min-h-[46px] active:scale-90 ${
                 isActive
                   ? 'text-blue-600 font-black'
                   : 'text-slate-400 hover:text-slate-700'

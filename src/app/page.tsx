@@ -82,8 +82,16 @@ export default function AuthPage() {
     router.prefetch('/upload');
     router.prefetch('/dashboard');
     router.prefetch('/brief');
+    router.prefetch('/profile');
 
     setOwnCredentialEmail(getOwnCredentialEmail());
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('mode') === 'signin') {
+        setAuthMode('signin');
+      }
+    }
 
     // Ensure landing page starts unauthenticated so only this first screen is visible
     // unless returning directly from a Google OAuth callback hash/session

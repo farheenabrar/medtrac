@@ -48,12 +48,18 @@ export async function saveStoredProfile(profile: UserProfile): Promise<UserProfi
           const updatedAccounts = accounts.map((acc) =>
             acc.id === profile.id ||
             (profile.email && acc.email?.toLowerCase() === profile.email.toLowerCase())
-              ? { ...acc, profile }
+              ? {
+                  ...acc,
+                  firstName: profile.first_name || acc.firstName,
+                  lastName: profile.last_name ?? acc.lastName,
+                  profile,
+                }
               : acc
           );
           localStorage.setItem('medtrac_registered_accounts', JSON.stringify(updatedAccounts));
         }
       }
+      window.dispatchEvent(new Event('medtrac-profile-updated'));
     } catch {
       // Ignore sync warning
     }

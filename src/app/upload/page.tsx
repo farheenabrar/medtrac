@@ -213,14 +213,9 @@ export default function UploadPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center font-black text-sm">
-              2
-            </span>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900">
-              Upload and Review
-            </h1>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900">
+            Upload and Review
+          </h1>
           <p className="text-xs text-slate-500 mt-1">
             Upload a PDF or take a photo anywhere.
           </p>

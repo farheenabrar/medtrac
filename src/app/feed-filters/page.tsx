@@ -211,14 +211,9 @@ export default function FeedFiltersPage() {
       {/* Page Title & Personalized Greeting */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center font-black text-sm">
-              1
-            </span>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              Hi {userFirstName}
-            </h1>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+            Hi {userFirstName}
+          </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
             Which medical conditions are you currently managing? Select below to personalize your records and doctor briefs.
           </p>

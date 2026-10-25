@@ -258,14 +258,9 @@ export default function DashboardPage() {
       {/* Top Banner / Controls */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center font-black text-sm">
-              3
-            </span>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900">
-              Metabolic Health Dashboard
-            </h1>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900">
+            Metabolic Health Dashboard
+          </h1>
           <p className="text-xs text-slate-500 mt-1">
             Track your lab trends, medications, and health milestones.
           </p>

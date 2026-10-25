@@ -16,6 +16,15 @@ export interface UserProfile {
   email?: string;
   phone?: string;
   date_of_birth: string;
+  profile_photo?: string;
+  gender?: string;
+  weight?: number | string;
+  weight_unit?: 'kg' | 'lbs';
+  height?: number | string;
+  height_unit?: 'cm' | 'ft';
+  bmi?: number;
+  bmi_category?: string;
+  bmi_ai_note?: string;
   preferred_unit?: UnitSystem;
   conditions: string[];
   created_at?: string;
