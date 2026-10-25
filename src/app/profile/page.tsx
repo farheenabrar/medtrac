@@ -358,7 +358,7 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-4xl mx-auto py-4 sm:py-6 space-y-6 animate-in fade-in duration-150">
-      {/* Top Header & Logout Action */}
+      {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
@@ -368,15 +368,6 @@ export default function ProfilePage() {
             Manage your personal details, AI-calculated BMI, and active health conditions.
           </p>
         </div>
-
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100/80 text-rose-700 font-bold text-xs sm:text-sm transition tap-press self-start sm:self-auto"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Log Out</span>
-        </button>
       </div>
 
       <form onSubmit={handleSaveProfile} className="space-y-6">
