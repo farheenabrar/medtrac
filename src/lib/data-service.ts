@@ -47,10 +47,11 @@ export async function saveStoredProfile(profile: UserProfile): Promise<UserProfi
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      const targetId = user?.id || profile.id;
+      if (targetId) {
         const payload = {
           ...profile,
-          id: user.id,
+          id: targetId,
           updated_at: new Date().toISOString(),
         };
         const { data, error } = await supabase

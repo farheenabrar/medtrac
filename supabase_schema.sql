@@ -16,8 +16,12 @@ CREATE TABLE IF NOT EXISTS public.users_profile (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
--- Ensure preferred_unit exists if table was created previously
+-- Ensure preferred_unit, first_name, last_name, email, phone exist if table was created previously
 ALTER TABLE public.users_profile ADD COLUMN IF NOT EXISTS preferred_unit TEXT DEFAULT 'mg_dl';
+ALTER TABLE public.users_profile ADD COLUMN IF NOT EXISTS first_name TEXT;
+ALTER TABLE public.users_profile ADD COLUMN IF NOT EXISTS last_name TEXT;
+ALTER TABLE public.users_profile ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.users_profile ADD COLUMN IF NOT EXISTS phone TEXT;
 ALTER TABLE public.users_profile ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can manage own profile" ON public.users_profile;
