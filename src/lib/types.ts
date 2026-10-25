@@ -90,7 +90,7 @@ export interface DoctorShare {
   id: string;
   user_id?: string;
   token: string;
-  doctor_type: 'GP' | 'Endocrinologist' | 'Nutritionist';
+  doctor_type: string;
   brief_content: DoctorBriefContent;
   view_count: number;
   expires_at: string;
@@ -99,7 +99,7 @@ export interface DoctorShare {
 }
 
 export interface DoctorBriefContent {
-  doctor_type: 'GP' | 'Endocrinologist' | 'Nutritionist';
+  doctor_type: string;
   patient_summary: {
     name: string;
     age?: number;

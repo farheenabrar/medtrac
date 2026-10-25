@@ -106,7 +106,7 @@ Rules:
  * Call 2: Doctor Brief Synthesizer
  */
 export async function generateDoctorBrief(params: {
-  doctorType: 'GP' | 'Endocrinologist' | 'Nutritionist';
+  doctorType: string;
   profile: UserProfile;
   results: LabResult[];
   medications: Medication[];

@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { doctorType, profile, results, medications, events } = body as {
-      doctorType: 'GP' | 'Endocrinologist' | 'Nutritionist';
+      doctorType: string;
       profile: UserProfile;
       results: LabResult[];
       medications: Medication[];

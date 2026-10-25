@@ -18,6 +18,8 @@ import {
   AlertCircle,
   Save,
   UploadCloud,
+  Stethoscope,
+  Plus,
 } from 'lucide-react';
 import { DoctorBriefContent } from '@/lib/types';
 import {
@@ -31,7 +33,8 @@ import { isSessionAuthenticated } from '@/lib/auth-storage';
 export default function DoctorBriefPage() {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
-  const [doctorType, setDoctorType] = useState<'GP' | 'Endocrinologist' | 'Nutritionist'>('GP');
+  const [doctorType, setDoctorType] = useState<string>('Specialist');
+  const [specializationInput, setSpecializationInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [brief, setBrief] = useState<DoctorBriefContent | null>(null);
   const [hasRecords, setHasRecords] = useState(false);
@@ -57,7 +60,15 @@ export default function DoctorBriefPage() {
     handleGenerate(doctorType);
   }, [doctorType, router]);
 
-  const handleGenerate = async (selectedType: 'GP' | 'Endocrinologist' | 'Nutritionist') => {
+  const handleAddSpecialization = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = specializationInput.trim();
+    if (!trimmed) return;
+    setDoctorType(trimmed);
+    setSpecializationInput('');
+  };
+
+  const handleGenerate = async (selectedType: string) => {
     setLoading(true);
     const profile = (await getStoredProfile()) || {
       id: 'user_1',
@@ -232,33 +243,46 @@ export default function DoctorBriefPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
-      {/* Header & Doctor Specialty Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
+      {/* Header & Doctor Specialization Box on Top Right */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 no-print">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Doctor Brief</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Doctor-ready consultation brief tailored to your physician’s exact specialty.
+            Doctor-ready consultation brief tailored to your physician’s exact specialization.
           </p>
         </div>
 
-        {/* Doctor Specialty Tabs */}
-        {hasRecords && (
-          <div className="inline-flex rounded-2xl bg-slate-100/90 p-1 border border-slate-200 shadow-2xs">
-            {(['GP', 'Endocrinologist', 'Nutritionist'] as const).map((type) => (
-              <button
-                key={type}
-                onClick={() => setDoctorType(type)}
-                className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all tap-press ${
-                  doctorType === type
-                    ? 'bg-white text-blue-700 shadow-2xs ring-1 ring-slate-900/5'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {type}
-              </button>
-            ))}
+        {/* Specialization Box with Manual Input */}
+        <form
+          onSubmit={handleAddSpecialization}
+          className="flex flex-wrap items-center gap-2 p-2 rounded-2xl bg-[#f0f6ff] border border-[#d8e6ff] shadow-2xs"
+        >
+          <div className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-black text-[#1e3a8a]">
+            <Stethoscope className="w-4 h-4 text-[#1d63ff]" />
+            <span>Specialization:</span>
+            {doctorType && doctorType !== 'Specialist' && (
+              <span className="px-2.5 py-0.5 rounded-lg bg-[#1d63ff] text-white text-[11px] font-extrabold shadow-2xs">
+                {doctorType}
+              </span>
+            )}
           </div>
-        )}
+
+          <input
+            type="text"
+            value={specializationInput}
+            onChange={(e) => setSpecializationInput(e.target.value)}
+            placeholder="Add doctor specialization..."
+            className="px-3.5 py-2 rounded-xl bg-white border border-blue-200/80 text-xs font-bold text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#1d63ff] transition min-w-[180px]"
+          />
+
+          <button
+            type="submit"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-b from-[#1e90ff] to-[#1d63ff] hover:from-blue-600 hover:to-blue-700 text-white font-black text-xs shadow-[0_3px_10px_rgba(29,99,255,0.25)] transition tap-press"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>Add</span>
+          </button>
+        </form>
       </div>
 
       {!hasRecords ? (
