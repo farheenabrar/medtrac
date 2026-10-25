@@ -14,6 +14,14 @@ export interface RegisteredAccount {
 
 const STORAGE_KEY = 'medtrac_registered_accounts';
 const SESSION_AUTH_KEY = 'medtrac_authenticated_session';
+const OWN_EMAIL_KEY = 'medtrac_own_credential_email';
+
+const LEGACY_DUMMY_EMAILS = new Set([
+  'sarah.jenkins@medtrac.org',
+  'sarah.jenkins@gmail.com',
+  'test@example.com',
+  'dummy.test@medtrac.org',
+]);
 
 export function setSessionAuthenticated(isAuthenticated: boolean): void {
   if (typeof window === 'undefined') return;
@@ -41,6 +49,28 @@ export function isSessionAuthenticated(): boolean {
     return hasSession && hasProfile;
   } catch {
     return false;
+  }
+}
+
+export function saveOwnCredentialEmail(email: string): void {
+  if (typeof window === 'undefined' || !email) return;
+  try {
+    localStorage.setItem(OWN_EMAIL_KEY, email.trim().toLowerCase());
+  } catch (e) {
+    console.warn('Error saving own credential email:', e);
+  }
+}
+
+export function getOwnCredentialEmail(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const val = localStorage.getItem(OWN_EMAIL_KEY);
+    if (val && !LEGACY_DUMMY_EMAILS.has(val.toLowerCase())) {
+      return val;
+    }
+    return null;
+  } catch {
+    return null;
   }
 }
 
@@ -87,7 +117,13 @@ export function getRegisteredAccounts(): RegisteredAccount[] {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      return parsed;
+      const cleaned = parsed.filter(
+        (acc) => !acc.email || !LEGACY_DUMMY_EMAILS.has(acc.email.toLowerCase())
+      );
+      if (cleaned.length !== parsed.length) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+      }
+      return cleaned;
     }
     return [];
   } catch (e) {
@@ -99,6 +135,9 @@ export function getRegisteredAccounts(): RegisteredAccount[] {
 export function saveRegisteredAccount(account: RegisteredAccount): void {
   if (typeof window === 'undefined') return;
   try {
+    if (account.email) {
+      saveOwnCredentialEmail(account.email);
+    }
     const accounts = getRegisteredAccounts();
     const existingIndex = accounts.findIndex(
       (a) =>

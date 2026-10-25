@@ -22,8 +22,8 @@ import {
   saveRegisteredAccount,
   findAccountByEmail,
   findAccountByPhone,
-  getRegisteredAccounts,
-  RegisteredAccount,
+  getOwnCredentialEmail,
+  saveOwnCredentialEmail,
   setSessionAuthenticated,
   clearAllUserRecords,
 } from '@/lib/auth-storage';
@@ -68,7 +68,8 @@ export default function AuthPage() {
   // Google Sign-In / Sign-Up Modal State
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [googleEmail, setGoogleEmail] = useState('');
-  const [savedAccounts, setSavedAccounts] = useState<RegisteredAccount[]>([]);
+  const [ownCredentialEmail, setOwnCredentialEmail] = useState<string | null>(null);
+  const [showGoogleSuggestion, setShowGoogleSuggestion] = useState(false);
 
   // Status & Feedback
   const [loading, setLoading] = useState(false);
@@ -82,7 +83,7 @@ export default function AuthPage() {
     router.prefetch('/dashboard');
     router.prefetch('/brief');
 
-    setSavedAccounts(getRegisteredAccounts());
+    setOwnCredentialEmail(getOwnCredentialEmail());
 
     // Ensure landing page starts unauthenticated so only this first screen is visible
     // unless returning directly from a Google OAuth callback hash/session
@@ -96,6 +97,9 @@ export default function AuthPage() {
               const supabase = createClient();
               const { data: { user } } = await supabase.auth.getUser();
               if (user) {
+                if (user.email) {
+                  saveOwnCredentialEmail(user.email);
+                }
                 const existing = user.email ? findAccountByEmail(user.email) : undefined;
                 if (existing) {
                   await saveStoredProfile(existing.profile);
@@ -158,6 +162,10 @@ export default function AuthPage() {
 
   // Complete authentication and navigate seamlessly to Feed Filters
   const completeAuthAndNavigate = async (profile: UserProfile, isNewUser: boolean) => {
+    if (profile.email) {
+      saveOwnCredentialEmail(profile.email);
+      setOwnCredentialEmail(profile.email);
+    }
     if (isNewUser) {
       clearAllUserRecords(profile.id);
     }
@@ -170,7 +178,10 @@ export default function AuthPage() {
   const handleGoogleSignIn = async () => {
     setErrorMessage(null);
     setSuccessMessage(null);
-    setSavedAccounts(getRegisteredAccounts());
+    const savedOwn = getOwnCredentialEmail();
+    setOwnCredentialEmail(savedOwn);
+    setGoogleEmail('');
+    setShowGoogleSuggestion(true);
 
     if (isSupabaseConfigured()) {
       try {
@@ -203,25 +214,26 @@ export default function AuthPage() {
     setShowGoogleModal(true);
   };
 
-  // Sign in with an existing or entered Google Account ID (No First/Last Name asked)
-  const handleGoogleAccountSelect = async (accountEmail: string) => {
-    const chosenEmail = accountEmail.trim().toLowerCase();
+  // Sign in or sign up with the Google email typed in the box
+  const handleGoogleModalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const chosenEmail = googleEmail.trim().toLowerCase();
     if (!chosenEmail || !chosenEmail.includes('@')) {
-      setErrorMessage('Please enter a valid account ID / email address.');
+      setErrorMessage('Please enter a valid Google email address.');
       return;
     }
 
     setLoading(true);
     setShowGoogleModal(false);
 
-    // If account already exists, sign in seamlessly with existing profile & data
+    // If account already exists from signup, sign in seamlessly with their existing profile
     const existing = findAccountByEmail(chosenEmail);
     if (existing) {
       await completeAuthAndNavigate(existing.profile, false);
       return;
     }
 
-    // Otherwise create profile using the account ID prefix as first name
+    // Otherwise create profile using their Google email
     const derivedName = chosenEmail
       .split('@')[0]
       .replace(/[._-]/g, ' ')
@@ -257,12 +269,7 @@ export default function AuthPage() {
     await completeAuthAndNavigate(newProfile, true);
   };
 
-  const handleGoogleModalSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await handleGoogleAccountSelect(googleEmail);
-  };
-
-  // 2. Email Sign Up & Seamless Existing User Sign In
+  // 2. Email Sign Up & Sign In
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -270,7 +277,7 @@ export default function AuthPage() {
 
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
-      setErrorMessage('Please enter a valid account ID / email address.');
+      setErrorMessage('Please enter a valid email address.');
       return;
     }
 
@@ -343,16 +350,20 @@ export default function AuthPage() {
 
       await completeAuthAndNavigate(newProfile, true);
     } else {
-      // Seamless Existing User Sign In Mode (Only requires Account ID / Email)
+      // Existing User Sign In Mode
       setLoading(true);
 
       const existingAccount = findAccountByEmail(cleanEmail);
       if (existingAccount) {
+        if (password && existingAccount.password && existingAccount.password !== 'google_oauth_account' && existingAccount.password !== password) {
+          setLoading(false);
+          setErrorMessage('Incorrect password. Please verify your password and try again.');
+          return;
+        }
         await completeAuthAndNavigate(existingAccount.profile, false);
         return;
       }
 
-      // If not found in local registry, create/load profile from the entered Account ID seamlessly
       const userId = generateUUID();
       const derivedFirst = cleanEmail
         .split('@')[0]
@@ -374,7 +385,7 @@ export default function AuthPage() {
         lastName: signedInProfile.last_name || '',
         dob: '',
         email: cleanEmail,
-        password: '',
+        password: password || '',
         profile: signedInProfile,
         createdAt: new Date().toISOString(),
       });
@@ -397,7 +408,6 @@ export default function AuthPage() {
 
     const fullPhoneNumber = `${countryCode}${cleanDigits}`;
 
-    // Seamless Sign In mode for existing mobile account ID
     if (authMode === 'signin') {
       setLoading(true);
       const existingAccount = findAccountByPhone(fullPhoneNumber);
@@ -430,7 +440,6 @@ export default function AuthPage() {
       return;
     }
 
-    // Sign Up Mode for Mobile Phone
     if (phoneAuthMethod === 'otp' && otpSent) {
       if (!otpCode.trim()) {
         setErrorMessage('Please enter the 6-digit verification code.');
@@ -516,6 +525,15 @@ export default function AuthPage() {
     await completeAuthAndNavigate(newProfile, true);
   };
 
+  // Determine whether the user's own saved email matches the current Google input for suggestion
+  const matchingOwnSuggestion =
+    ownCredentialEmail &&
+    ownCredentialEmail.toLowerCase() !== googleEmail.trim().toLowerCase() &&
+    (googleEmail.trim() === '' ||
+      ownCredentialEmail.toLowerCase().includes(googleEmail.trim().toLowerCase()))
+      ? ownCredentialEmail
+      : null;
+
   return (
     <div className="min-h-[82vh] flex items-center justify-center py-6 sm:py-10 px-2">
       <div className="w-full max-w-md card-depth p-6 sm:p-8 space-y-6 bg-white rounded-[28px]">
@@ -550,7 +568,7 @@ export default function AuthPage() {
             type="button"
             onClick={() => {
               setAuthMode('signin');
-              setSavedAccounts(getRegisteredAccounts());
+              setOwnCredentialEmail(getOwnCredentialEmail());
               setErrorMessage(null);
               setSuccessMessage(null);
             }}
@@ -722,51 +740,15 @@ export default function AuthPage() {
           {/* Email Channel Inputs */}
           {channel === 'email' && (
             <div className="space-y-4">
-              {authMode === 'signin' && savedAccounts.filter((a) => a.email).length > 0 && (
-                <div className="space-y-2">
-                  <label className="block text-[11px] font-black text-slate-600 uppercase tracking-wide">
-                    Select Existing Account ID
-                  </label>
-                  <div className="space-y-1.5">
-                    {savedAccounts
-                      .filter((a) => a.email)
-                      .map((acc) => (
-                        <button
-                          key={acc.id}
-                          type="button"
-                          onClick={() => completeAuthAndNavigate(acc.profile, false)}
-                          className="w-full p-2.5 rounded-2xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/40 flex items-center justify-between text-left transition tap-press"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-black text-xs flex items-center justify-center shrink-0">
-                              {(acc.firstName || acc.email || 'U')[0].toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-black text-slate-900 truncate">
-                                {acc.email}
-                              </p>
-                              <p className="text-[11px] text-slate-500 truncate">
-                                {acc.firstName} {acc.lastName}
-                              </p>
-                            </div>
-                          </div>
-                          <span className="text-xs font-bold text-blue-600 shrink-0 ml-2">
-                            Use Account →
-                          </span>
-                        </button>
-                      ))}
-                  </div>
-                </div>
-              )}
-
               <div>
                 <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wide mb-1.5">
-                  {authMode === 'signin' ? 'Account ID (Email Address)' : 'Email Address'}{' '}
-                  <span className="text-rose-500">*</span>
+                  Email Address <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <input
                     type="email"
+                    name="email"
+                    autoComplete="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -775,29 +757,30 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              {authMode === 'signup' && (
-                <div>
-                  <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wide mb-1.5">
-                    Create Password <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-3.5 py-2.5 pr-10 bg-slate-50/80 rounded-2xl border border-slate-200/90 text-xs sm:text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
+              <div>
+                <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wide mb-1.5">
+                  {authMode === 'signup' ? 'Create Password' : 'Password'}{' '}
+                  <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
+                    required={authMode === 'signup'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-3.5 py-2.5 pr-10 bg-slate-50/80 rounded-2xl border border-slate-200/90 text-xs sm:text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -806,10 +789,7 @@ export default function AuthPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wide mb-1.5">
-                  {authMode === 'signin'
-                    ? 'Account ID (Mobile Phone Number)'
-                    : 'Mobile Phone Number'}{' '}
-                  <span className="text-rose-500">*</span>
+                  Mobile Phone Number <span className="text-rose-500">*</span>
                 </label>
                 <div className="flex gap-2">
                   <select
@@ -938,7 +918,7 @@ export default function AuthPage() {
         </div>
       </div>
 
-      {/* Google Account Chooser Modal (Only asks which Account ID to use — never First & Last Name) */}
+      {/* Google Sign-In / Sign-Up Box: User types their Google email and gets suggestion from their own credential */}
       {showGoogleModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-5">
@@ -964,7 +944,7 @@ export default function AuthPage() {
                 </svg>
                 <div>
                   <h3 className="text-sm font-black text-slate-900">Sign in with Google</h3>
-                  <p className="text-[11px] text-slate-500">Choose an account to continue to Medtrac</p>
+                  <p className="text-[11px] text-slate-500">Continue to Medtrac</p>
                 </div>
               </div>
               <button
@@ -976,45 +956,52 @@ export default function AuthPage() {
               </button>
             </div>
 
-            {/* Existing accounts list for 1-click seamless sign-in */}
-            {savedAccounts.filter((a) => a.email).length > 0 && (
-              <div className="space-y-2">
-                {savedAccounts
-                  .filter((a) => a.email)
-                  .map((acc) => (
-                    <button
-                      key={acc.id}
-                      type="button"
-                      onClick={() => handleGoogleAccountSelect(acc.email!)}
-                      className="w-full p-3 rounded-2xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/40 flex items-center gap-3 text-left transition tap-press"
-                    >
-                      <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-black text-xs flex items-center justify-center shrink-0">
-                        {(acc.firstName || acc.email || 'U')[0].toUpperCase()}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-black text-slate-900 truncate">{acc.email}</p>
-                        <p className="text-[11px] text-slate-500 truncate">
-                          {acc.firstName} {acc.lastName}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-              </div>
-            )}
-
             <form onSubmit={handleGoogleModalSubmit} className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-black text-slate-700 uppercase mb-1">
-                  Account ID (Google Email) <span className="text-rose-500">*</span>
+              <div className="relative">
+                <label className="block text-[11px] font-black text-slate-700 uppercase mb-1.5">
+                  Google Email <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="email"
+                  name="email"
+                  autoComplete="email"
+                  list="own-google-credential-list"
                   required
+                  autoFocus
                   value={googleEmail}
-                  onChange={(e) => setGoogleEmail(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  onFocus={() => setShowGoogleSuggestion(true)}
+                  onChange={(e) => {
+                    setGoogleEmail(e.target.value);
+                    setShowGoogleSuggestion(true);
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
+                {ownCredentialEmail && (
+                  <datalist id="own-google-credential-list">
+                    <option value={ownCredentialEmail} />
+                  </datalist>
+                )}
+
+                {/* Personalized suggestion prompt based strictly on this user's own signup credential */}
+                {showGoogleSuggestion && matchingOwnSuggestion && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGoogleEmail(matchingOwnSuggestion);
+                      setShowGoogleSuggestion(false);
+                    }}
+                    className="mt-1.5 w-full px-3 py-2 rounded-xl bg-blue-50/80 hover:bg-blue-100/80 border border-blue-200/80 flex items-center justify-between text-left transition tap-press"
+                  >
+                    <span className="text-xs font-bold text-blue-900 truncate">
+                      {matchingOwnSuggestion}
+                    </span>
+                    <span className="text-[10px] font-extrabold text-blue-600 uppercase tracking-wider shrink-0 ml-2">
+                      Suggested
+                    </span>
+                  </button>
+                )}
               </div>
+
               <button
                 type="submit"
                 className="w-full py-2.5 px-4 rounded-xl bg-[#1d63ff] hover:bg-blue-700 text-white font-black text-xs transition shadow-sm tap-press"
