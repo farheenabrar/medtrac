@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import Navigation from '@/components/Navigation';
+import SplashScreen from '@/components/SplashScreen';
 
 export const metadata: Metadata = {
   title: 'Medtrac - Cross-Border Metabolic Tracking',
@@ -23,6 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-blue-100 selection:text-blue-900 flex flex-col">
+        <SplashScreen />
         <Navigation />
 
         <main className="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6 pb-24 sm:pb-8">
