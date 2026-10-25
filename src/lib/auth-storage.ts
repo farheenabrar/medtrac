@@ -44,6 +44,24 @@ export function isSessionAuthenticated(): boolean {
   }
 }
 
+/**
+ * Clears any cached lab results, life events, medications, or doctor briefs
+ * when a new user signs up so every screen starts completely empty by default.
+ */
+export function clearAllUserRecords(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem('medtrac_results');
+    localStorage.removeItem('medtrac_events');
+    localStorage.removeItem('medtrac_medications');
+    localStorage.removeItem('medtrac_brief_GP');
+    localStorage.removeItem('medtrac_brief_Endocrinologist');
+    localStorage.removeItem('medtrac_brief_Nutritionist');
+  } catch (e) {
+    console.warn('Error clearing user records:', e);
+  }
+}
+
 export function generateUUID(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -55,74 +73,21 @@ export function generateUUID(): string {
   });
 }
 
-/**
- * Default seeded test accounts so the user can test sign-in immediately
- * without even needing to sign up first.
- */
-const DEFAULT_SEEDED_ACCOUNTS: RegisteredAccount[] = [
-  {
-    id: 'a0000000-0000-4000-8000-000000000001',
-    firstName: 'Sarah',
-    lastName: 'Jenkins',
-    dob: '1982-04-12',
-    email: 'sarah.jenkins@medtrac.org',
-    phone: '+971501234567',
-    password: 'password123',
-    profile: {
-      id: 'a0000000-0000-4000-8000-000000000001',
-      full_name: 'Sarah Jenkins',
-      first_name: 'Sarah',
-      last_name: 'Jenkins',
-      email: 'sarah.jenkins@medtrac.org',
-      phone: '+971501234567',
-      date_of_birth: '1982-04-12',
-      conditions: ['Prediabetes', 'Cholesterol'],
-      preferred_unit: 'mg_dl',
-      created_at: '2026-01-01T00:00:00.000Z',
-    },
-    createdAt: '2026-01-01T00:00:00.000Z',
-  },
-  {
-    id: 'a0000000-0000-4000-8000-000000000002',
-    firstName: 'Test',
-    lastName: 'User',
-    dob: '1990-01-15',
-    email: 'test@example.com',
-    phone: '+15551234567',
-    password: 'password123',
-    profile: {
-      id: 'a0000000-0000-4000-8000-000000000002',
-      full_name: 'Test User',
-      first_name: 'Test',
-      last_name: 'User',
-      email: 'test@example.com',
-      phone: '+15551234567',
-      date_of_birth: '1990-01-15',
-      conditions: ['Hypertension', 'Diabetes'],
-      preferred_unit: 'mg_dl',
-      created_at: '2026-01-01T00:00:00.000Z',
-    },
-    createdAt: '2026-01-01T00:00:00.000Z',
-  },
-];
-
 export function getRegisteredAccounts(): RegisteredAccount[] {
-  if (typeof window === 'undefined') return DEFAULT_SEEDED_ACCOUNTS;
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      // Seed initial accounts
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_SEEDED_ACCOUNTS));
-      return DEFAULT_SEEDED_ACCOUNTS;
+      return [];
     }
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
+    if (Array.isArray(parsed)) {
       return parsed;
     }
-    return DEFAULT_SEEDED_ACCOUNTS;
+    return [];
   } catch (e) {
     console.warn('Error reading registered accounts:', e);
-    return DEFAULT_SEEDED_ACCOUNTS;
+    return [];
   }
 }
 

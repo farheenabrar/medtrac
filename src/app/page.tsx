@@ -23,6 +23,7 @@ import {
   findAccountByEmail,
   findAccountByPhone,
   setSessionAuthenticated,
+  clearAllUserRecords,
 } from '@/lib/auth-storage';
 
 const COUNTRY_CODES = [
@@ -33,14 +34,6 @@ const COUNTRY_CODES = [
   { code: '+966', country: 'Saudi Arabia 🇸🇦' },
   { code: '+65', country: 'Singapore 🇸🇬' },
   { code: '+61', country: 'Australia 🇦🇺' },
-];
-
-const DEFAULT_CLINICAL_CONDITIONS = [
-  'Triglycerides',
-  'Insulin Resistance',
-  'Prediabetes',
-  'Kidney Stones',
-  'Hypertension',
 ];
 
 export default function AuthPage() {
@@ -103,19 +96,20 @@ export default function AuthPage() {
                   user.user_metadata?.full_name ||
                   user.user_metadata?.name ||
                   user.email?.split('@')[0] ||
-                  'Google User';
+                  'User';
                 const parts = fullName.split(' ');
-                const fName = parts[0] || 'Google';
-                const lName = parts.slice(1).join(' ') || 'User';
+                const fName = parts[0] || 'User';
+                const lName = parts.slice(1).join(' ') || '';
+                clearAllUserRecords();
                 const googleProfile: UserProfile = {
                   id: user.id,
                   full_name: fullName,
                   first_name: fName,
                   last_name: lName,
-                  date_of_birth: user.user_metadata?.date_of_birth || '1988-05-15',
+                  date_of_birth: user.user_metadata?.date_of_birth || '',
                   email: user.email || '',
                   phone: '',
-                  conditions: DEFAULT_CLINICAL_CONDITIONS,
+                  conditions: [],
                   preferred_unit: 'mg_dl',
                 };
                 await saveStoredProfile(googleProfile);
@@ -152,7 +146,10 @@ export default function AuthPage() {
   const isAdult = dob ? calculatedAge >= 18 : false;
 
   // Complete authentication and navigate seamlessly to Feed Filters
-  const completeAuthAndNavigate = async (profile: UserProfile) => {
+  const completeAuthAndNavigate = async (profile: UserProfile, isNewUser: boolean) => {
+    if (isNewUser) {
+      clearAllUserRecords();
+    }
     await saveStoredProfile(profile);
     setSessionAuthenticated(true);
     router.push('/feed-filters');
@@ -163,7 +160,6 @@ export default function AuthPage() {
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    // Check if Supabase has Google OAuth provider actively enabled before redirecting
     if (isSupabaseConfigured()) {
       try {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -192,19 +188,14 @@ export default function AuthPage() {
       }
     }
 
-    // Open interactive Google Account sign-up modal so user can sign up with their Google account seamlessly
     setShowGoogleModal(true);
   };
 
   // Complete Google Account Sign-Up from Modal
-  const handleGoogleModalSubmit = async (
-    e: React.FormEvent,
-    presetEmail?: string,
-    presetName?: string
-  ) => {
+  const handleGoogleModalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const chosenEmail = (presetEmail ?? googleEmail).trim().toLowerCase();
-    const chosenName = (presetName ?? googleName).trim();
+    const chosenEmail = googleEmail.trim().toLowerCase();
+    const chosenName = googleName.trim();
 
     if (!chosenEmail || !chosenEmail.includes('@')) {
       setErrorMessage('Please enter a valid Google email address.');
@@ -214,10 +205,9 @@ export default function AuthPage() {
     setLoading(true);
     setShowGoogleModal(false);
 
-    // Check if account already exists
     const existing = findAccountByEmail(chosenEmail);
     if (existing) {
-      await completeAuthAndNavigate(existing.profile);
+      await completeAuthAndNavigate(existing.profile, false);
       return;
     }
 
@@ -228,8 +218,8 @@ export default function AuthPage() {
         .replace(/[._-]/g, ' ')
         .replace(/\b\w/g, (l) => l.toUpperCase());
     const nameParts = derivedName.split(' ');
-    const fName = nameParts[0] || 'Google';
-    const lName = nameParts.slice(1).join(' ') || 'User';
+    const fName = nameParts[0] || 'User';
+    const lName = nameParts.slice(1).join(' ') || '';
 
     const userId = generateUUID();
     const newProfile: UserProfile = {
@@ -237,10 +227,10 @@ export default function AuthPage() {
       full_name: `${fName} ${lName}`.trim(),
       first_name: fName,
       last_name: lName,
-      date_of_birth: dob || '1988-05-15',
+      date_of_birth: dob || '',
       email: chosenEmail,
       phone: '',
-      conditions: DEFAULT_CLINICAL_CONDITIONS,
+      conditions: [],
       preferred_unit: 'mg_dl',
     };
 
@@ -255,7 +245,7 @@ export default function AuthPage() {
       createdAt: new Date().toISOString(),
     });
 
-    await completeAuthAndNavigate(newProfile);
+    await completeAuthAndNavigate(newProfile, true);
   };
 
   // 2. Email Sign Up & Sign In Handler (Supports any dummy email & password for testing)
@@ -296,7 +286,6 @@ export default function AuthPage() {
 
       let userId = generateUUID();
 
-      // Attempt Supabase SignUp in background if configured, but never block dummy email testing
       if (isSupabaseConfigured()) {
         try {
           const supabase = createClient();
@@ -328,7 +317,7 @@ export default function AuthPage() {
         date_of_birth: dob,
         email: cleanEmail,
         phone: '',
-        conditions: DEFAULT_CLINICAL_CONDITIONS,
+        conditions: [],
         preferred_unit: 'mg_dl',
       };
 
@@ -343,10 +332,11 @@ export default function AuthPage() {
         createdAt: new Date().toISOString(),
       });
 
-      await completeAuthAndNavigate(newProfile);
+      await completeAuthAndNavigate(newProfile, true);
     } else {
       // Sign In Mode
       let signedInProfile: UserProfile | null = null;
+      let isNewAccount = false;
 
       // 1. Check locally registered accounts first
       const existingAccount = findAccountByEmail(cleanEmail);
@@ -382,9 +372,9 @@ export default function AuthPage() {
                 full_name: data.user.user_metadata?.full_name || cleanEmail.split('@')[0],
                 first_name: data.user.user_metadata?.first_name || cleanEmail.split('@')[0],
                 last_name: data.user.user_metadata?.last_name || '',
-                date_of_birth: data.user.user_metadata?.date_of_birth || '1988-05-15',
+                date_of_birth: data.user.user_metadata?.date_of_birth || '',
                 email: cleanEmail,
-                conditions: DEFAULT_CLINICAL_CONDITIONS,
+                conditions: [],
                 preferred_unit: 'mg_dl',
               };
             }
@@ -396,6 +386,7 @@ export default function AuthPage() {
 
       // 3. Allow seamless dummy account sign-in for testing
       if (!signedInProfile) {
+        isNewAccount = true;
         const userId = generateUUID();
         const derivedFirst = cleanEmail.split('@')[0].replace(/[._-]/g, ' ');
         signedInProfile = {
@@ -403,16 +394,16 @@ export default function AuthPage() {
           full_name: derivedFirst,
           first_name: derivedFirst,
           last_name: '',
-          date_of_birth: '1988-05-15',
+          date_of_birth: '',
           email: cleanEmail,
-          conditions: DEFAULT_CLINICAL_CONDITIONS,
+          conditions: [],
           preferred_unit: 'mg_dl',
         };
         saveRegisteredAccount({
           id: userId,
           firstName: derivedFirst,
           lastName: '',
-          dob: '1988-05-15',
+          dob: '',
           email: cleanEmail,
           password,
           profile: signedInProfile,
@@ -420,7 +411,7 @@ export default function AuthPage() {
         });
       }
 
-      await completeAuthAndNavigate(signedInProfile);
+      await completeAuthAndNavigate(signedInProfile, isNewAccount);
     }
   };
 
@@ -468,23 +459,26 @@ export default function AuthPage() {
         return;
       }
 
-      let profile = findAccountByPhone(fullPhoneNumber)?.profile;
+      const existing = findAccountByPhone(fullPhoneNumber);
+      let profile = existing?.profile;
+      let isNew = false;
       if (!profile) {
+        isNew = true;
         const userId = generateUUID();
         profile = {
           id: userId,
-          full_name: `${firstName.trim()} ${lastName.trim()}`.trim() || 'Mobile User',
-          first_name: firstName.trim() || 'Mobile',
-          last_name: lastName.trim() || 'User',
-          date_of_birth: dob || '1990-01-01',
+          full_name: `${firstName.trim()} ${lastName.trim()}`.trim() || 'User',
+          first_name: firstName.trim() || 'User',
+          last_name: lastName.trim() || '',
+          date_of_birth: dob || '',
           phone: fullPhoneNumber,
-          conditions: DEFAULT_CLINICAL_CONDITIONS,
+          conditions: [],
           preferred_unit: 'mg_dl',
         };
         saveRegisteredAccount({
           id: userId,
-          firstName: profile.first_name || 'Mobile',
-          lastName: profile.last_name || 'User',
+          firstName: profile.first_name || 'User',
+          lastName: profile.last_name || '',
           dob: profile.date_of_birth,
           phone: fullPhoneNumber,
           password: 'otp_verified',
@@ -493,7 +487,7 @@ export default function AuthPage() {
         });
       }
 
-      await completeAuthAndNavigate(profile);
+      await completeAuthAndNavigate(profile, isNew);
       return;
     }
 
@@ -539,7 +533,7 @@ export default function AuthPage() {
         last_name: lastName.trim(),
         date_of_birth: dob,
         phone: fullPhoneNumber,
-        conditions: DEFAULT_CLINICAL_CONDITIONS,
+        conditions: [],
         preferred_unit: 'mg_dl',
       };
 
@@ -554,12 +548,12 @@ export default function AuthPage() {
         createdAt: new Date().toISOString(),
       });
 
-      await completeAuthAndNavigate(newProfile);
+      await completeAuthAndNavigate(newProfile, true);
     } else {
       const existingAccount = findAccountByPhone(fullPhoneNumber);
       if (existingAccount) {
         if (existingAccount.password === password) {
-          await completeAuthAndNavigate(existingAccount.profile);
+          await completeAuthAndNavigate(existingAccount.profile, false);
         } else {
           setLoading(false);
           setErrorMessage('Incorrect password or PIN for this mobile number.');
@@ -730,7 +724,6 @@ export default function AuthPage() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Sarah"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-slate-50/80 rounded-2xl border border-slate-200/90 text-xs sm:text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
@@ -744,7 +737,6 @@ export default function AuthPage() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Jenkins"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-slate-50/80 rounded-2xl border border-slate-200/90 text-xs sm:text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
@@ -788,7 +780,6 @@ export default function AuthPage() {
                   <input
                     type="email"
                     required
-                    placeholder="name@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-slate-50/80 rounded-2xl border border-slate-200/90 text-xs sm:text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
@@ -805,7 +796,6 @@ export default function AuthPage() {
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
-                    placeholder={authMode === 'signup' ? 'Min. 6 characters' : 'Enter your password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-3.5 py-2.5 pr-10 bg-slate-50/80 rounded-2xl border border-slate-200/90 text-xs sm:text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
@@ -844,7 +834,6 @@ export default function AuthPage() {
                   <input
                     type="tel"
                     required
-                    placeholder="50 123 4567"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="flex-1 px-3.5 py-2.5 bg-slate-50/80 rounded-2xl border border-slate-200/90 text-xs sm:text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 tabular-nums transition"
@@ -875,7 +864,6 @@ export default function AuthPage() {
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
-                      placeholder={authMode === 'signup' ? 'Min. 4 characters or digits' : 'Enter your password or PIN'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="w-full px-3.5 py-2.5 pr-10 bg-slate-50/80 rounded-2xl border border-slate-200/90 text-xs sm:text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
@@ -913,7 +901,6 @@ export default function AuthPage() {
                       <input
                         type="text"
                         maxLength={6}
-                        placeholder="123456"
                         value={otpCode}
                         onChange={(e) => setOtpCode(e.target.value)}
                         className="w-full text-center tracking-widest text-lg font-black bg-white py-2 rounded-xl border border-blue-300 outline-none focus:ring-2 focus:ring-blue-500/20 tabular-nums"
@@ -921,8 +908,7 @@ export default function AuthPage() {
                     </div>
                   ) : (
                     <p className="text-[11px] text-slate-500 font-medium">
-                      Click below to receive a 6-digit verification code. (Test mode code is{' '}
-                      <span className="font-bold text-slate-800">123456</span>).
+                      Click below to receive a 6-digit verification code.
                     </p>
                   )}
                 </div>
@@ -977,7 +963,7 @@ export default function AuthPage() {
                   />
                   <path
                     fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l.81-.63z"
                   />
                 </svg>
                 <div>
@@ -994,43 +980,14 @@ export default function AuthPage() {
               </button>
             </div>
 
-            {/* Quick Account Selection or Custom Google Account Input */}
-            <div className="space-y-2">
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Choose an account
-              </p>
-              <button
-                type="button"
-                onClick={(e) =>
-                  handleGoogleModalSubmit(e, 'sarah.jenkins@gmail.com', 'Sarah Jenkins')
-                }
-                className="w-full p-3 rounded-2xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 flex items-center gap-3 text-left transition tap-press"
-              >
-                <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-black text-sm flex items-center justify-center shrink-0">
-                  S
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-xs font-black text-slate-900 truncate">Sarah Jenkins</p>
-                  <p className="text-[11px] text-slate-500 truncate">sarah.jenkins@gmail.com</p>
-                </div>
-              </button>
-            </div>
-
-            <div className="relative flex items-center justify-center">
-              <div className="border-t border-slate-200 w-full" />
-              <span className="bg-white px-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                or use your Google email
-              </span>
-            </div>
-
-            <form onSubmit={(e) => handleGoogleModalSubmit(e)} className="space-y-3">
+            <form onSubmit={handleGoogleModalSubmit} className="space-y-3">
               <div>
                 <label className="block text-[11px] font-black text-slate-700 uppercase mb-1">
-                  Full Name
+                  First &amp; Last Name <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="Your Name"
+                  required
                   value={googleName}
                   onChange={(e) => setGoogleName(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -1043,7 +1000,6 @@ export default function AuthPage() {
                 <input
                   type="email"
                   required
-                  placeholder="yourname@gmail.com"
                   value={googleEmail}
                   onChange={(e) => setGoogleEmail(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"

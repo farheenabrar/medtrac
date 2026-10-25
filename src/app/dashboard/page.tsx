@@ -478,24 +478,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* The Aha Moment Milestone Marker - Royal Violet Palette */}
-        <div className="p-4 rounded-3xl bg-[#f5f3ff] border border-[#ddd6fe] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-[#7c3aed] to-[#6d28d9] text-white flex items-center justify-center shrink-0 shadow-[0_4px_12px_rgba(124,58,237,0.3)]">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="font-black text-[#581c87] text-xs sm:text-sm">
-                Metabolic Trajectory Unlocked:
-              </span>
-              <p className="text-[#6b21a8] text-[11px] mt-0.5 font-medium leading-relaxed">
-                Metropolis Healthcare (Mumbai, Mar 2025 in <span className="font-bold tabular-nums">235 mg/dL</span>) and Mediclinic (Dubai, Jan 2026 in <span className="font-bold tabular-nums">1.82 mmol/L</span>)
-                are harmonized on one continuous scale with your <span className="font-bold text-[#581c87]">Metformin 500mg</span> milestone pin between them.
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Medical Boundary Notice */}
         <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-start gap-2.5 text-[11px] text-slate-500">
           <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
@@ -611,7 +593,6 @@ export default function DashboardPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Switched to Mediterranean diet"
                   value={newEventTitle}
                   onChange={(e) => setNewEventTitle(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
@@ -680,7 +661,6 @@ export default function DashboardPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Metformin"
                   value={newMedName}
                   onChange={(e) => setNewMedName(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -694,7 +674,6 @@ export default function DashboardPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. 500mg"
                   value={newMedDose}
                   onChange={(e) => setNewMedDose(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -707,7 +686,6 @@ export default function DashboardPage() {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Once daily with dinner"
                   value={newMedFreq}
                   onChange={(e) => setNewMedFreq(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"

@@ -4,25 +4,22 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
 import {
-  FileText,
   Share2,
   Download,
   RefreshCw,
-  XCircle,
   Copy,
   Check,
-  Stethoscope,
   Sparkles,
   HelpCircle,
   Clock,
-  ShieldCheck,
   ExternalLink,
   Edit3,
   Calendar,
   AlertCircle,
   Save,
+  UploadCloud,
 } from 'lucide-react';
-import { DoctorBriefContent, LifeEvent, Medication, UserProfile, LabResult } from '@/lib/types';
+import { DoctorBriefContent } from '@/lib/types';
 import {
   getStoredProfile,
   getStoredResults,
@@ -37,11 +34,12 @@ export default function DoctorBriefPage() {
   const [doctorType, setDoctorType] = useState<'GP' | 'Endocrinologist' | 'Nutritionist'>('GP');
   const [loading, setLoading] = useState(false);
   const [brief, setBrief] = useState<DoctorBriefContent | null>(null);
+  const [hasRecords, setHasRecords] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [hasUnsavedEdits, setHasUnsavedEdits] = useState(false);
 
-  // Last visit date picker (resolves the "since last visit" requirement)
-  const [lastVisitDate, setLastVisitDate] = useState('2025-03-10');
+  // Last visit date picker (empty by default for first-time user)
+  const [lastVisitDate, setLastVisitDate] = useState('');
 
   // Share modal state
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -50,35 +48,52 @@ export default function DoctorBriefPage() {
   const [isRevoked, setIsRevoked] = useState(false);
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
 
-  // Load cached brief for selected specialty or generate
   useEffect(() => {
     if (!isSessionAuthenticated()) {
       router.replace('/');
       return;
     }
     setAuthorized(true);
-
-    const cached = localStorage.getItem(`medtrac_brief_${doctorType}`);
-    if (cached) {
-      setBrief(JSON.parse(cached));
-    } else {
-      handleGenerate(doctorType);
-    }
+    handleGenerate(doctorType);
   }, [doctorType, router]);
 
   const handleGenerate = async (selectedType: 'GP' | 'Endocrinologist' | 'Nutritionist') => {
     setLoading(true);
     const profile = (await getStoredProfile()) || {
       id: 'user_1',
-      full_name: 'Sarah Jenkins',
-      date_of_birth: '1985-06-15',
-      conditions: ['Triglycerides', 'Prediabetes'],
+      full_name: 'User',
+      date_of_birth: '',
+      conditions: [],
     };
-    try {
-      const results = (await getStoredResults()) || [];
-      const events = (await getStoredEvents()) || [];
-      const medications = (await getStoredMedications()) || [];
+    const results = (await getStoredResults()) || [];
+    const events = (await getStoredEvents()) || [];
+    const medications = (await getStoredMedications()) || [];
 
+    const userHasData = results.length > 0 || events.length > 0 || medications.length > 0;
+    setHasRecords(userHasData);
+
+    // If first-time user has no uploaded reports, medications, or events, do not populate any dummy brief data
+    if (!userHasData) {
+      setBrief({
+        doctor_type: selectedType,
+        patient_summary: {
+          name: profile.full_name || profile.first_name || 'User',
+          conditions: Array.isArray(profile.conditions) ? profile.conditions : [],
+        },
+        last_visit_date: lastVisitDate,
+        key_changes: [],
+        trends_summary: '',
+        current_medications: [],
+        recent_events: [],
+        questions_to_ask: [],
+        disclaimer: 'Organises your records. Not medical advice.',
+      });
+      setLoading(false);
+      setShowRegenerateConfirm(false);
+      return;
+    }
+
+    try {
       const res = await fetch('/api/brief', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -101,60 +116,48 @@ export default function DoctorBriefPage() {
       localStorage.setItem(`medtrac_brief_${selectedType}`, JSON.stringify(generatedBrief));
       setHasUnsavedEdits(false);
     } catch (err: any) {
-      console.warn('Using client fallback generator:', err.message);
-      // High-yield fallback tailored to recipient
+      console.warn('Using dynamic client summary:', err.message);
+      const actualConditions = Array.isArray(profile.conditions) ? profile.conditions : [];
       const fallbackBrief: DoctorBriefContent = {
         doctor_type: selectedType,
         patient_summary: {
-          name: profile.full_name || 'Sarah Jenkins',
-          conditions:
-            profile.conditions && profile.conditions.length > 0
-              ? profile.conditions
-              : ['Triglycerides', 'Prediabetes'],
+          name: profile.full_name || profile.first_name || 'User',
+          conditions: actualConditions,
         },
         last_visit_date: lastVisitDate,
-        key_changes: [
-          'Triglycerides dropped from 235 mg/dL (Metropolis, Mumbai, Mar 2025) down to 1.82 mmol/L / ~161 mg/dL (Mediclinic, Dubai, Jan 2026), showing a 31% improvement.',
-          'HbA1c declined favorably from 6.2% to 5.8%, placing the patient within close reach of normal glycemic target.',
-          'Fasting Glucose stabilized at 5.6 mmol/L (~101 mg/dL) following initiation of Metformin.',
-        ],
+        key_changes: results.map(
+          (r) =>
+            `${r.raw_test_name}: ${r.raw_value} ${r.raw_unit} (${r.test_date}${
+              r.lab_name ? `, ${r.lab_name}` : ''
+            })`
+        ),
         trends_summary:
-          selectedType === 'Endocrinologist'
-            ? 'Glycemic markers demonstrate steady favorable response to the current metformin dosage and dietary interventions over the past 10 months. Insulin sensitivity markers show consistent improvement.'
-            : selectedType === 'Nutritionist'
-            ? 'Lipid profiles indicate significant responsiveness to reduced simple carbohydrate intake and addition of omega-3 supplementation. Continued focus on dietary fiber recommended.'
-            : 'Patient presents with steady metabolic improvements across both lipid and glycemic panels over the preceding 10 months following lifestyle protocol and Metformin.',
-        current_medications: [
-          {
-            name: 'Metformin',
-            dosage: '500mg',
-            frequency: 'Once daily with dinner',
-            started: '2025-06-15',
-          },
-          {
-            name: 'Omega-3 Fish Oil',
-            dosage: '1000mg',
-            frequency: 'Daily morning',
-            started: '2025-04-01',
-          },
-        ],
-        recent_events: [
-          {
-            title: 'Started Metformin 500mg daily',
-            date: '2025-06-15',
-            category: 'medication',
-          },
-          {
-            title: 'Adopted low-glycemic dietary protocol',
-            date: '2025-09-01',
-            category: 'lifestyle',
-          },
-        ],
-        questions_to_ask: [
-          'Given the 31% drop in triglycerides, is my current Metformin 500mg dosage optimal or should it be adjusted?',
-          'Should we schedule an advanced ApoB or lipid particle test at our next milestone review?',
-          'Are there any complementary dietary supplements or lifestyle modifications you recommend to push HbA1c below 5.7%?',
-        ],
+          results.length > 0
+            ? `Summary generated from ${results.length} uploaded laboratory test result(s) for ${
+                profile.full_name || 'User'
+              } tailored for ${selectedType} consultation.`
+            : '',
+        current_medications: medications.map((m) => ({
+          name: m.name,
+          dosage: m.dosage,
+          frequency: m.frequency,
+          started: m.start_date,
+        })),
+        recent_events: events.map((e) => ({
+          title: e.title,
+          date: e.event_date,
+          category: e.category,
+        })),
+        questions_to_ask:
+          results.length > 0 || actualConditions.length > 0
+            ? [
+                `Based on my current profile${
+                  actualConditions.length > 0 ? ` (${actualConditions.join(', ')})` : ''
+                }, what target ranges should we prioritize?`,
+                `Which follow-up laboratory tests do you recommend before our next ${selectedType} review?`,
+                `Are any adjustments needed to my current management plan based on these records?`,
+              ]
+            : [],
         disclaimer: 'Organises your records. Not medical advice.',
       };
       setBrief(fallbackBrief);
@@ -189,7 +192,6 @@ export default function DoctorBriefPage() {
       setIsRevoked(false);
       setShareModalOpen(true);
 
-      // Save to localStorage for demo preview fallback
       if (typeof window !== 'undefined') {
         localStorage.setItem(`medtrac_share_${data.token}`, JSON.stringify(brief));
       }
@@ -265,7 +267,6 @@ export default function DoctorBriefPage() {
       {/* Action Toolbar */}
       <div className="card-depth flex flex-wrap items-center justify-between gap-3 p-4 no-print">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Last visit date selector */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200/80 bg-slate-50 text-xs">
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
             <span className="text-[11px] font-semibold text-slate-500">Since Visit:</span>
@@ -292,23 +293,25 @@ export default function DoctorBriefPage() {
             <span>Regenerate</span>
           </button>
 
-          <button
-            onClick={() => {
-              if (isEditing) {
-                handleSaveEdits();
-              } else {
-                setIsEditing(true);
-              }
-            }}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition tap-press shadow-2xs ${
-              isEditing
-                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                : 'border border-slate-200/80 text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            {isEditing ? <Save className="w-3.5 h-3.5" /> : <Edit3 className="w-3.5 h-3.5 text-slate-500" />}
-            <span>{isEditing ? 'Save Changes' : 'Edit Brief'}</span>
-          </button>
+          {hasRecords && (
+            <button
+              onClick={() => {
+                if (isEditing) {
+                  handleSaveEdits();
+                } else {
+                  setIsEditing(true);
+                }
+              }}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition tap-press shadow-2xs ${
+                isEditing
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                  : 'border border-slate-200/80 text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              {isEditing ? <Save className="w-3.5 h-3.5" /> : <Edit3 className="w-3.5 h-3.5 text-slate-500" />}
+              <span>{isEditing ? 'Save Changes' : 'Edit Brief'}</span>
+            </button>
+          )}
 
           <button
             onClick={() => window.print()}
@@ -322,7 +325,8 @@ export default function DoctorBriefPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={handleShare}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs shadow-sm transition tap-press"
+            disabled={!hasRecords}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 text-white font-bold text-xs shadow-sm transition tap-press"
           >
             <Share2 className="w-3.5 h-3.5" />
             <span>Share 24h Link &amp; QR Code</span>
@@ -374,136 +378,191 @@ export default function DoctorBriefPage() {
                 Patient: {brief.patient_summary.name}
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Conditions: {brief.patient_summary.conditions.join(', ')}
+                Conditions:{' '}
+                {brief.patient_summary.conditions.length > 0
+                  ? brief.patient_summary.conditions.join(', ')
+                  : 'None selected'}
               </p>
             </div>
             <div className="sm:text-right text-xs text-slate-400">
               <span className="font-extrabold text-slate-700">Medtrac Unified Records</span>
-              <p className="tabular-nums">Chronological review since {lastVisitDate}</p>
+              {lastVisitDate && <p className="tabular-nums">Chronological review since {lastVisitDate}</p>}
             </div>
           </div>
 
-          {/* Key Changes Section */}
-          <div>
-            <div className="flex items-center justify-between mb-2.5">
-              <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-blue-600" />
-                Key Changes Since Last Visit ({lastVisitDate})
-              </h3>
-              {isEditing && (
-                <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full ring-1 ring-blue-600/20">Editable</span>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              {brief.key_changes.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-start gap-2.5 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/80 text-xs text-slate-800 font-medium leading-relaxed"
+          {!hasRecords ? (
+            <div className="py-10 text-center space-y-3">
+              <p className="text-sm font-bold text-slate-700">
+                No lab reports or clinical records added yet.
+              </p>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Upload your laboratory reports in the Uploads screen to generate your personalized Doctor Brief.
+              </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => router.push('/upload')}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition tap-press"
                 >
-                  <span className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 shrink-0 shadow-2xs" />
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={item}
-                      onChange={(e) => {
-                        const updated = [...brief.key_changes];
-                        updated[idx] = e.target.value;
-                        setBrief({ ...brief, key_changes: updated });
-                        setHasUnsavedEdits(true);
-                      }}
-                      className="w-full bg-white px-3 py-1.5 rounded-xl border border-slate-300 outline-none text-xs"
-                    />
-                  ) : (
-                    <span className="tabular-nums">{item}</span>
+                  <UploadCloud className="w-4 h-4" />
+                  <span>Go to Uploads</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Key Changes Section */}
+              <div>
+                <div className="flex items-center justify-between mb-2.5">
+                  <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-blue-600" />
+                    Key Lab Readings {lastVisitDate ? `Since Last Visit (${lastVisitDate})` : ''}
+                  </h3>
+                  {isEditing && (
+                    <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full ring-1 ring-blue-600/20">
+                      Editable
+                    </span>
                   )}
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Specialty Trends Summary */}
-          <div>
-            <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-2">
-              Specialist Trajectory Overview ({brief.doctor_type})
-            </h3>
-            {isEditing ? (
-              <textarea
-                rows={3}
-                value={brief.trends_summary}
-                onChange={(e) => {
-                  setBrief({ ...brief, trends_summary: e.target.value });
-                  setHasUnsavedEdits(true);
-                }}
-                className="w-full text-xs text-slate-700 bg-white p-3.5 rounded-2xl border border-slate-300 outline-none leading-relaxed"
-              />
-            ) : (
-              <p className="text-xs text-slate-700 leading-relaxed bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80">
-                {brief.trends_summary}
-              </p>
-            )}
-          </div>
-
-          {/* Two-Column Grid: Medications & Interventions */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80">
-              <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-2.5">
-                Active Medications
-              </h3>
-              <div className="space-y-2 text-xs">
-                {brief.current_medications.map((m, idx) => (
-                  <div key={idx} className="flex justify-between items-center text-slate-800 bg-white/80 px-3 py-2 rounded-xl border border-slate-200/60 shadow-2xs">
-                    <span className="font-bold text-slate-900">{m.name} <span className="text-slate-500 font-semibold">{m.dosage}</span></span>
-                    <span className="text-slate-500 text-[11px] font-medium">{m.frequency}</span>
+                {brief.key_changes.length > 0 ? (
+                  <div className="space-y-2">
+                    {brief.key_changes.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-start gap-2.5 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/80 text-xs text-slate-800 font-medium leading-relaxed"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 shrink-0 shadow-2xs" />
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={item}
+                            onChange={(e) => {
+                              const updated = [...brief.key_changes];
+                              updated[idx] = e.target.value;
+                              setBrief({ ...brief, key_changes: updated });
+                              setHasUnsavedEdits(true);
+                            }}
+                            className="w-full bg-white px-3 py-1.5 rounded-xl border border-slate-300 outline-none text-xs"
+                          />
+                        ) : (
+                          <span className="tabular-nums">{item}</span>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
+                ) : (
+                  <p className="text-xs text-slate-400 italic">No lab readings recorded.</p>
+                )}
               </div>
-            </div>
 
-            <div className="p-4 rounded-2xl bg-purple-50/40 border border-purple-200/60">
-              <h3 className="text-xs font-black text-purple-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-purple-600 inline-block" />
-                Recent Milestones / Life Events
-              </h3>
-              <div className="space-y-2 text-xs">
-                {brief.recent_events.map((e, idx) => (
-                  <div key={idx} className="flex justify-between items-center text-slate-800 bg-white/80 px-3 py-2 rounded-xl border border-purple-200/60 shadow-2xs">
-                    <span className="font-medium text-slate-900">{e.title}</span>
-                    <span className="badge-milestone text-[11px] tabular-nums font-bold">{e.date}</span>
-                  </div>
-                ))}
+              {/* Specialty Trends Summary */}
+              <div>
+                <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-2">
+                  Specialist Trajectory Overview ({brief.doctor_type})
+                </h3>
+                {isEditing ? (
+                  <textarea
+                    rows={3}
+                    value={brief.trends_summary}
+                    onChange={(e) => {
+                      setBrief({ ...brief, trends_summary: e.target.value });
+                      setHasUnsavedEdits(true);
+                    }}
+                    className="w-full text-xs text-slate-700 bg-white p-3.5 rounded-2xl border border-slate-300 outline-none leading-relaxed"
+                  />
+                ) : (
+                  <p className="text-xs text-slate-700 leading-relaxed bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80">
+                    {brief.trends_summary || 'No trajectory summary available yet.'}
+                  </p>
+                )}
               </div>
-            </div>
-          </div>
 
-          {/* 3 Questions to Ask (Editable) */}
-          <div className="p-5 rounded-3xl bg-blue-50/60 border border-blue-200/80 space-y-3 shadow-2xs">
-            <h3 className="text-xs font-black text-blue-950 uppercase tracking-wider flex items-center gap-2">
-              <HelpCircle className="w-4 h-4 text-blue-700" />
-              Exactly 3 Suggested Questions to Ask Your {brief.doctor_type}
-            </h3>
-            <ol className="space-y-2 text-xs text-blue-950 list-decimal list-inside font-medium leading-relaxed">
-              {brief.questions_to_ask.map((q, idx) => (
-                <li key={idx} className="bg-white/90 p-2.5 rounded-xl border border-blue-200/60 shadow-2xs">
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={q}
-                      onChange={(e) => {
-                        const updated = [...brief.questions_to_ask];
-                        updated[idx] = e.target.value;
-                        setBrief({ ...brief, questions_to_ask: updated });
-                        setHasUnsavedEdits(true);
-                      }}
-                      className="w-full bg-white px-2 py-1 rounded-lg border border-blue-300 outline-none text-slate-900 mt-1"
-                    />
+              {/* Two-Column Grid: Medications & Interventions */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80">
+                  <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-2.5">
+                    Active Medications
+                  </h3>
+                  {brief.current_medications.length > 0 ? (
+                    <div className="space-y-2 text-xs">
+                      {brief.current_medications.map((m, idx) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center text-slate-800 bg-white/80 px-3 py-2 rounded-xl border border-slate-200/60 shadow-2xs"
+                        >
+                          <span className="font-bold text-slate-900">
+                            {m.name} <span className="text-slate-500 font-semibold">{m.dosage}</span>
+                          </span>
+                          <span className="text-slate-500 text-[11px] font-medium">{m.frequency}</span>
+                        </div>
+                      ))}
+                    </div>
                   ) : (
-                    <span className="ml-1 text-slate-800">{q}</span>
+                    <p className="text-xs text-slate-400 italic">No active medications logged.</p>
                   )}
-                </li>
-              ))}
-            </ol>
-          </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-purple-50/40 border border-purple-200/60">
+                  <h3 className="text-xs font-black text-purple-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-purple-600 inline-block" />
+                    Recent Milestones / Life Events
+                  </h3>
+                  {brief.recent_events.length > 0 ? (
+                    <div className="space-y-2 text-xs">
+                      {brief.recent_events.map((e, idx) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center text-slate-800 bg-white/80 px-3 py-2 rounded-xl border border-purple-200/60 shadow-2xs"
+                        >
+                          <span className="font-medium text-slate-900">{e.title}</span>
+                          <span className="badge-milestone text-[11px] tabular-nums font-bold">
+                            {e.date}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">No life events logged.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Suggested Questions to Ask */}
+              {brief.questions_to_ask.length > 0 && (
+                <div className="p-5 rounded-3xl bg-blue-50/60 border border-blue-200/80 space-y-3 shadow-2xs">
+                  <h3 className="text-xs font-black text-blue-950 uppercase tracking-wider flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4 text-blue-700" />
+                    Suggested Questions to Ask Your {brief.doctor_type}
+                  </h3>
+                  <ol className="space-y-2 text-xs text-blue-950 list-decimal list-inside font-medium leading-relaxed">
+                    {brief.questions_to_ask.map((q, idx) => (
+                      <li
+                        key={idx}
+                        className="bg-white/90 p-2.5 rounded-xl border border-blue-200/60 shadow-2xs"
+                      >
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={q}
+                            onChange={(e) => {
+                              const updated = [...brief.questions_to_ask];
+                              updated[idx] = e.target.value;
+                              setBrief({ ...brief, questions_to_ask: updated });
+                              setHasUnsavedEdits(true);
+                            }}
+                            className="w-full bg-white px-2 py-1 rounded-lg border border-blue-300 outline-none text-slate-900 mt-1"
+                          />
+                        ) : (
+                          <span className="ml-1 text-slate-800">{q}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+            </>
+          )}
 
           {/* Mandatory Disclaimer */}
           <div className="pt-3 border-t border-slate-200/80 text-center text-xs font-semibold text-slate-400">

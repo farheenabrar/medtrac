@@ -16,7 +16,11 @@ import {
 } from 'lucide-react';
 import { UserProfile } from '@/lib/types';
 import { getStoredProfile, saveStoredProfile, isSupabaseConfigured } from '@/lib/data-service';
-import { isSessionAuthenticated, setSessionAuthenticated } from '@/lib/auth-storage';
+import {
+  isSessionAuthenticated,
+  setSessionAuthenticated,
+  clearAllUserRecords,
+} from '@/lib/auth-storage';
 import { createClient } from '@/lib/supabase/client';
 
 interface ClinicalProfileOption {
@@ -58,18 +62,10 @@ const STANDARD_CLINICAL_PROFILES: ClinicalProfileOption[] = [
   },
 ];
 
-const DEFAULT_SELECTED = [
-  'Triglycerides',
-  'Insulin Resistance',
-  'Prediabetes',
-  'Kidney Stones',
-  'Hypertension',
-];
-
 export default function FeedFiltersPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [selectedConditions, setSelectedConditions] = useState<string[]>(DEFAULT_SELECTED);
+  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
   const [manualInput, setManualInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [authorized, setAuthorized] = useState(false);
@@ -92,22 +88,23 @@ export default function FeedFiltersPage() {
                 user.user_metadata?.full_name ||
                 user.user_metadata?.name ||
                 user.email?.split('@')[0] ||
-                'Google User';
+                'User';
               const parts = fullName.split(' ');
+              clearAllUserRecords();
               const googleProfile: UserProfile = {
                 id: user.id,
                 full_name: fullName,
-                first_name: parts[0] || 'Google',
-                last_name: parts.slice(1).join(' ') || 'User',
-                date_of_birth: user.user_metadata?.date_of_birth || '1988-05-15',
+                first_name: parts[0] || 'User',
+                last_name: parts.slice(1).join(' ') || '',
+                date_of_birth: user.user_metadata?.date_of_birth || '',
                 email: user.email || '',
-                conditions: DEFAULT_SELECTED,
+                conditions: [],
                 preferred_unit: 'mg_dl',
               };
               await saveStoredProfile(googleProfile);
               setSessionAuthenticated(true);
               setProfile(googleProfile);
-              setSelectedConditions(googleProfile.conditions);
+              setSelectedConditions([]);
               setAuthorized(true);
               return;
             }
@@ -129,11 +126,7 @@ export default function FeedFiltersPage() {
       }
 
       setProfile(stored);
-      if (stored.conditions && stored.conditions.length > 0) {
-        setSelectedConditions(stored.conditions);
-      } else {
-        setSelectedConditions(DEFAULT_SELECTED);
-      }
+      setSelectedConditions(Array.isArray(stored.conditions) ? stored.conditions : []);
       setAuthorized(true);
     }
 
@@ -208,12 +201,14 @@ export default function FeedFiltersPage() {
     return null;
   }
 
+  const userFirstName =
+    profile?.first_name || (profile?.full_name ? profile.full_name.split(' ')[0] : 'User');
   const standardNames = STANDARD_CLINICAL_PROFILES.map((p) => p.name);
   const customConditions = selectedConditions.filter((c) => !standardNames.includes(c));
 
   return (
     <div className="max-w-4xl mx-auto py-4 sm:py-6 space-y-6 animate-in fade-in duration-150">
-      {/* Page Title & Context */}
+      {/* Page Title & Personalized Greeting */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2.5">
@@ -221,7 +216,7 @@ export default function FeedFiltersPage() {
               1
             </span>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              Feed Filters
+              Hi {userFirstName}
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
@@ -230,7 +225,7 @@ export default function FeedFiltersPage() {
         </div>
       </div>
 
-      {/* Main Clinical Profiles Card matching Screenshot 2 */}
+      {/* Main Clinical Profiles Card */}
       <div className="card-depth p-6 sm:p-8 bg-white rounded-[28px] space-y-6">
         <div className="space-y-4">
           <h2 className="text-xs sm:text-[13px] font-extrabold text-slate-500 uppercase tracking-wider">
@@ -293,8 +288,7 @@ export default function FeedFiltersPage() {
               type="text"
               value={manualInput}
               onChange={(e) => setManualInput(e.target.value)}
-              placeholder="e.g. Non-Alcoholic Fatty Liver (NAFLD), Gout, Hashimoto's..."
-              className="flex-1 px-4 py-3.5 rounded-2xl border border-slate-200/90 bg-white text-sm text-slate-800 placeholder:text-slate-400 font-medium outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+              className="flex-1 px-4 py-3.5 rounded-2xl border border-slate-200/90 bg-white text-sm text-slate-800 font-medium outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
             />
             <button
               type="submit"

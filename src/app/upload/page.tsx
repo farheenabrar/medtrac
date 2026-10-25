@@ -40,90 +40,6 @@ interface ReviewRow {
   status?: 'approved' | 'disapproved';
 }
 
-// Built-in sample reports to demonstrate the "Aha Moment"
-const SAMPLE_LAB_REPORTS: ReviewRow[] = [
-  // 2025 Mumbai Report (mg/dL)
-  {
-    id: 'mb-1',
-    raw_test_name: 'Serum Triglycerides',
-    canonical_key: 'triglycerides',
-    raw_value: 235,
-    raw_unit: 'mg/dL',
-    raw_range: '50 - 150 mg/dL',
-    test_date: '2025-03-10',
-    lab_name: 'Metropolis Healthcare',
-    lab_country: 'Mumbai, India',
-    confidence_score: 0.98,
-    source_file: 'Metropolis_Mumbai_Mar2025.pdf',
-  },
-  {
-    id: 'mb-2',
-    raw_test_name: 'Fasting Blood Sugar (FBS)',
-    canonical_key: 'fasting_glucose',
-    raw_value: 114,
-    raw_unit: 'mg/dL',
-    raw_range: '70 - 100 mg/dL',
-    test_date: '2025-03-10',
-    lab_name: 'Metropolis Healthcare',
-    lab_country: 'Mumbai, India',
-    confidence_score: 0.82, // Amber low confidence trigger to test OCR warning
-    source_file: 'Metropolis_Mumbai_Mar2025.pdf',
-  },
-  {
-    id: 'mb-3',
-    raw_test_name: 'Glycated Hemoglobin (HbA1c)',
-    canonical_key: 'hba1c',
-    raw_value: 6.2,
-    raw_unit: '%',
-    raw_range: '< 5.7 %',
-    test_date: '2025-03-10',
-    lab_name: 'Metropolis Healthcare',
-    lab_country: 'Mumbai, India',
-    confidence_score: 0.99,
-    source_file: 'Metropolis_Mumbai_Mar2025.pdf',
-  },
-  // 2026 Dubai Report (mmol/L)
-  {
-    id: 'db-1',
-    raw_test_name: 'Triglycerides',
-    canonical_key: 'triglycerides',
-    raw_value: 1.82,
-    raw_unit: 'mmol/L',
-    raw_range: '< 1.70 mmol/L',
-    test_date: '2026-01-20',
-    lab_name: 'Mediclinic City Hospital',
-    lab_country: 'Dubai, UAE',
-    confidence_score: 0.97,
-    source_file: 'Mediclinic_Dubai_Jan2026.pdf',
-  },
-  {
-    id: 'db-2',
-    raw_test_name: 'Fasting Plasma Glucose',
-    canonical_key: 'fasting_glucose',
-    raw_value: 5.6,
-    raw_unit: 'mmol/L',
-    raw_range: '3.9 - 5.6 mmol/L',
-    test_date: '2026-01-20',
-    lab_name: 'Mediclinic City Hospital',
-    lab_country: 'Dubai, UAE',
-    confidence_score: 0.95,
-    source_file: 'Mediclinic_Dubai_Jan2026.pdf',
-  },
-  {
-    id: 'db-3',
-    raw_test_name: 'HbA1c',
-    canonical_key: 'hba1c',
-    raw_value: 5.8,
-    raw_unit: '%',
-    raw_range: '< 5.7 %',
-    test_date: '2026-01-20',
-    lab_name: 'Mediclinic City Hospital',
-    lab_country: 'Dubai, UAE',
-    confidence_score: 0.99,
-    source_file: 'Mediclinic_Dubai_Jan2026.pdf',
-  },
-];
-
 export default function UploadPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -235,10 +151,6 @@ export default function UploadPage() {
     setStatusMessage('');
   };
 
-  const loadSampleReports = () => {
-    setRows(SAMPLE_LAB_REPORTS);
-  };
-
   const updateRow = (id: string, field: keyof ReviewRow, val: any) => {
     setRows((prev) =>
       prev.map((row) => (row.id === id ? { ...row, [field]: val } : row))
@@ -251,7 +163,7 @@ export default function UploadPage() {
 
   const handleConfirm = async () => {
     if (rows.length === 0) {
-      alert('Please upload or load at least one test result before confirming.');
+      alert('Please upload at least one test result before confirming.');
       return;
     }
 
@@ -282,54 +194,11 @@ export default function UploadPage() {
     // Save to Supabase and LocalStorage
     await saveStoredResults(labResults);
 
-    // Seed default life event if none exists to unlock the "Aha moment"
+    // Clear cached briefs so Doctor Brief reflects the newly confirmed lab results
     if (typeof window !== 'undefined') {
-      const existingEvents = localStorage.getItem('medtrac_events');
-      if (!existingEvents) {
-        const defaultEvents = [
-          {
-            id: 'evt-1',
-            user_id: 'active_user',
-            title: 'Started Metformin 500mg daily',
-            category: 'medication',
-            event_date: '2025-06-15',
-          },
-          {
-            id: 'evt-2',
-            user_id: 'active_user',
-            title: 'Adopted low-glycemic dietary protocol',
-            category: 'lifestyle',
-            event_date: '2025-09-01',
-          },
-        ];
-        localStorage.setItem('medtrac_events', JSON.stringify(defaultEvents));
-      }
-
-      // Seed active medications if none exists
-      const existingMeds = localStorage.getItem('medtrac_medications');
-      if (!existingMeds) {
-        const defaultMeds = [
-          {
-            id: 'med-1',
-            user_id: 'active_user',
-            name: 'Metformin',
-            dosage: '500mg',
-            frequency: 'Once daily with dinner',
-            start_date: '2025-06-15',
-            is_active: true,
-          },
-          {
-            id: 'med-2',
-            user_id: 'active_user',
-            name: 'Omega-3 Fish Oil',
-            dosage: '1000mg',
-            frequency: 'Daily morning',
-            start_date: '2025-04-01',
-            is_active: true,
-          },
-        ];
-        localStorage.setItem('medtrac_medications', JSON.stringify(defaultMeds));
-      }
+      localStorage.removeItem('medtrac_brief_GP');
+      localStorage.removeItem('medtrac_brief_Endocrinologist');
+      localStorage.removeItem('medtrac_brief_Nutritionist');
     }
 
     router.push('/dashboard');
