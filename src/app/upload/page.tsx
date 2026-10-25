@@ -334,22 +334,13 @@ export default function UploadPage() {
               2
             </span>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900">
-              Upload &amp; Review Lab Reports
+              Upload and Review
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Ingest lab PDFs or phone photos from Mumbai, Dubai, or anywhere. Verify extracted values.
+            Upload a PDF or take a photo anywhere.
           </p>
         </div>
-
-        <button
-          type="button"
-          onClick={loadSampleCrossBorderReports}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[#f5f3ff] text-[#7c3aed] border border-[#ddd6fe] hover:bg-[#ede9fe] font-black text-xs transition-all shadow-xs tap-press"
-        >
-          <Sparkles className="w-4 h-4 text-[#7c3aed] shrink-0" />
-          <span>Load Mumbai &amp; Dubai Reports (Aha Moment)</span>
-        </button>
       </div>
 
       {/* Dual Upload Area: Dropzone + Mobile Camera Button */}
