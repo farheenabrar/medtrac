@@ -22,6 +22,8 @@ import {
   saveRegisteredAccount,
   findAccountByEmail,
   findAccountByPhone,
+  getRegisteredAccounts,
+  RegisteredAccount,
   setSessionAuthenticated,
   clearAllUserRecords,
 } from '@/lib/auth-storage';
@@ -63,10 +65,10 @@ export default function AuthPage() {
   const [otpSent, setOtpSent] = useState(false);
   const [testOtpNotice, setTestOtpNotice] = useState<string | null>(null);
 
-  // Google Sign-Up Modal State
+  // Google Sign-In / Sign-Up Modal State
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [googleEmail, setGoogleEmail] = useState('');
-  const [googleName, setGoogleName] = useState('');
+  const [savedAccounts, setSavedAccounts] = useState<RegisteredAccount[]>([]);
 
   // Status & Feedback
   const [loading, setLoading] = useState(false);
@@ -80,6 +82,8 @@ export default function AuthPage() {
     router.prefetch('/dashboard');
     router.prefetch('/brief');
 
+    setSavedAccounts(getRegisteredAccounts());
+
     // Ensure landing page starts unauthenticated so only this first screen is visible
     // unless returning directly from a Google OAuth callback hash/session
     async function checkOAuthRedirect() {
@@ -92,6 +96,13 @@ export default function AuthPage() {
               const supabase = createClient();
               const { data: { user } } = await supabase.auth.getUser();
               if (user) {
+                const existing = user.email ? findAccountByEmail(user.email) : undefined;
+                if (existing) {
+                  await saveStoredProfile(existing.profile);
+                  setSessionAuthenticated(true);
+                  router.replace('/feed-filters');
+                  return;
+                }
                 const fullName =
                   user.user_metadata?.full_name ||
                   user.user_metadata?.name ||
@@ -100,7 +111,7 @@ export default function AuthPage() {
                 const parts = fullName.split(' ');
                 const fName = parts[0] || 'User';
                 const lName = parts.slice(1).join(' ') || '';
-                clearAllUserRecords();
+                clearAllUserRecords(user.id);
                 const googleProfile: UserProfile = {
                   id: user.id,
                   full_name: fullName,
@@ -159,6 +170,7 @@ export default function AuthPage() {
   const handleGoogleSignIn = async () => {
     setErrorMessage(null);
     setSuccessMessage(null);
+    setSavedAccounts(getRegisteredAccounts());
 
     if (isSupabaseConfigured()) {
       try {
@@ -184,44 +196,39 @@ export default function AuthPage() {
           }
         }
       } catch (err) {
-        console.warn('Google OAuth settings check fallback to interactive Google sign-up:', err);
+        console.warn('Google OAuth settings check fallback to interactive Google sign-in:', err);
       }
     }
 
     setShowGoogleModal(true);
   };
 
-  // Complete Google Account Sign-Up from Modal
-  const handleGoogleModalSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const chosenEmail = googleEmail.trim().toLowerCase();
-    const chosenName = googleName.trim();
-
+  // Sign in with an existing or entered Google Account ID (No First/Last Name asked)
+  const handleGoogleAccountSelect = async (accountEmail: string) => {
+    const chosenEmail = accountEmail.trim().toLowerCase();
     if (!chosenEmail || !chosenEmail.includes('@')) {
-      setErrorMessage('Please enter a valid Google email address.');
+      setErrorMessage('Please enter a valid account ID / email address.');
       return;
     }
 
     setLoading(true);
     setShowGoogleModal(false);
 
-    if (authMode === 'signin') {
-      const existing = findAccountByEmail(chosenEmail);
-      if (existing) {
-        await completeAuthAndNavigate(existing.profile, false);
-        return;
-      }
+    // If account already exists, sign in seamlessly with existing profile & data
+    const existing = findAccountByEmail(chosenEmail);
+    if (existing) {
+      await completeAuthAndNavigate(existing.profile, false);
+      return;
     }
 
-    const derivedName =
-      chosenName ||
-      chosenEmail
-        .split('@')[0]
-        .replace(/[._-]/g, ' ')
-        .replace(/\b\w/g, (l) => l.toUpperCase());
+    // Otherwise create profile using the account ID prefix as first name
+    const derivedName = chosenEmail
+      .split('@')[0]
+      .replace(/[._-]/g, ' ')
+      .replace(/\b\w/g, (l) => l.toUpperCase());
     const nameParts = derivedName.split(' ');
-    const fName = nameParts[0] || 'User';
-    const lName = nameParts.slice(1).join(' ') || '';
+    const fName = firstName.trim() || nameParts[0] || 'User';
+    const lName = lastName.trim() || nameParts.slice(1).join(' ') || '';
 
     const userId = generateUUID();
     const newProfile: UserProfile = {
@@ -250,7 +257,12 @@ export default function AuthPage() {
     await completeAuthAndNavigate(newProfile, true);
   };
 
-  // 2. Email Sign Up & Sign In Handler (Supports any dummy email & password for testing)
+  const handleGoogleModalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await handleGoogleAccountSelect(googleEmail);
+  };
+
+  // 2. Email Sign Up & Seamless Existing User Sign In
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -258,34 +270,29 @@ export default function AuthPage() {
 
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
-      setErrorMessage('Please enter a valid email address.');
+      setErrorMessage('Please enter a valid account ID / email address.');
       return;
     }
-
-    if (!password) {
-      setErrorMessage('Please enter a password.');
-      return;
-    }
-
-    setLoading(true);
 
     if (authMode === 'signup') {
       if (!firstName.trim()) {
         setErrorMessage('Please provide your first name.');
-        setLoading(false);
         return;
       }
       if (!lastName.trim()) {
         setErrorMessage('Please provide your last name.');
-        setLoading(false);
         return;
       }
       if (!dob) {
         setErrorMessage('Please select your date of birth.');
-        setLoading(false);
+        return;
+      }
+      if (!password) {
+        setErrorMessage('Please enter a password.');
         return;
       }
 
+      setLoading(true);
       let userId = generateUUID();
 
       if (isSupabaseConfigured()) {
@@ -336,84 +343,43 @@ export default function AuthPage() {
 
       await completeAuthAndNavigate(newProfile, true);
     } else {
-      // Sign In Mode
-      let signedInProfile: UserProfile | null = null;
-      let isNewAccount = false;
+      // Seamless Existing User Sign In Mode (Only requires Account ID / Email)
+      setLoading(true);
 
-      // 1. Check locally registered accounts first
       const existingAccount = findAccountByEmail(cleanEmail);
       if (existingAccount) {
-        if (existingAccount.password === password) {
-          signedInProfile = existingAccount.profile;
-        } else {
-          setLoading(false);
-          setErrorMessage('Incorrect password. Please verify your password and try again.');
-          return;
-        }
+        await completeAuthAndNavigate(existingAccount.profile, false);
+        return;
       }
 
-      // 2. Try Supabase Auth if not found locally
-      if (!signedInProfile && isSupabaseConfigured()) {
-        try {
-          const supabase = createClient();
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email: cleanEmail,
-            password: password,
-          });
-          if (data?.user && !error) {
-            const { data: dbProfile } = await supabase
-              .from('users_profile')
-              .select('*')
-              .eq('id', data.user.id)
-              .single();
-            if (dbProfile) {
-              signedInProfile = dbProfile as UserProfile;
-            } else {
-              signedInProfile = {
-                id: data.user.id,
-                full_name: data.user.user_metadata?.full_name || cleanEmail.split('@')[0],
-                first_name: data.user.user_metadata?.first_name || cleanEmail.split('@')[0],
-                last_name: data.user.user_metadata?.last_name || '',
-                date_of_birth: data.user.user_metadata?.date_of_birth || '',
-                email: cleanEmail,
-                conditions: [],
-                preferred_unit: 'mg_dl',
-              };
-            }
-          }
-        } catch (supaErr: any) {
-          console.warn('Supabase signIn notice:', supaErr.message);
-        }
-      }
+      // If not found in local registry, create/load profile from the entered Account ID seamlessly
+      const userId = generateUUID();
+      const derivedFirst = cleanEmail
+        .split('@')[0]
+        .replace(/[._-]/g, ' ')
+        .replace(/\b\w/g, (l) => l.toUpperCase());
+      const signedInProfile: UserProfile = {
+        id: userId,
+        full_name: derivedFirst,
+        first_name: derivedFirst.split(' ')[0] || 'User',
+        last_name: derivedFirst.split(' ').slice(1).join(' ') || '',
+        date_of_birth: '',
+        email: cleanEmail,
+        conditions: [],
+        preferred_unit: 'mg_dl',
+      };
+      saveRegisteredAccount({
+        id: userId,
+        firstName: signedInProfile.first_name || 'User',
+        lastName: signedInProfile.last_name || '',
+        dob: '',
+        email: cleanEmail,
+        password: '',
+        profile: signedInProfile,
+        createdAt: new Date().toISOString(),
+      });
 
-      // 3. Allow seamless dummy account sign-in for testing
-      if (!signedInProfile) {
-        isNewAccount = true;
-        const userId = generateUUID();
-        const derivedFirst = cleanEmail.split('@')[0].replace(/[._-]/g, ' ');
-        signedInProfile = {
-          id: userId,
-          full_name: derivedFirst,
-          first_name: derivedFirst,
-          last_name: '',
-          date_of_birth: '',
-          email: cleanEmail,
-          conditions: [],
-          preferred_unit: 'mg_dl',
-        };
-        saveRegisteredAccount({
-          id: userId,
-          firstName: derivedFirst,
-          lastName: '',
-          dob: '',
-          email: cleanEmail,
-          password,
-          profile: signedInProfile,
-          createdAt: new Date().toISOString(),
-        });
-      }
-
-      await completeAuthAndNavigate(signedInProfile, isNewAccount);
+      await completeAuthAndNavigate(signedInProfile, true);
     }
   };
 
@@ -431,7 +397,40 @@ export default function AuthPage() {
 
     const fullPhoneNumber = `${countryCode}${cleanDigits}`;
 
-    // A. OTP Verification step
+    // Seamless Sign In mode for existing mobile account ID
+    if (authMode === 'signin') {
+      setLoading(true);
+      const existingAccount = findAccountByPhone(fullPhoneNumber);
+      if (existingAccount) {
+        await completeAuthAndNavigate(existingAccount.profile, false);
+        return;
+      }
+      const userId = generateUUID();
+      const profile: UserProfile = {
+        id: userId,
+        full_name: 'User',
+        first_name: 'User',
+        last_name: '',
+        date_of_birth: '',
+        phone: fullPhoneNumber,
+        conditions: [],
+        preferred_unit: 'mg_dl',
+      };
+      saveRegisteredAccount({
+        id: userId,
+        firstName: 'User',
+        lastName: '',
+        dob: '',
+        phone: fullPhoneNumber,
+        password: '',
+        profile,
+        createdAt: new Date().toISOString(),
+      });
+      await completeAuthAndNavigate(profile, true);
+      return;
+    }
+
+    // Sign Up Mode for Mobile Phone
     if (phoneAuthMethod === 'otp' && otpSent) {
       if (!otpCode.trim()) {
         setErrorMessage('Please enter the 6-digit verification code.');
@@ -439,61 +438,32 @@ export default function AuthPage() {
       }
 
       setLoading(true);
+      const userId = generateUUID();
+      const profile: UserProfile = {
+        id: userId,
+        full_name: `${firstName.trim()} ${lastName.trim()}`.trim() || 'User',
+        first_name: firstName.trim() || 'User',
+        last_name: lastName.trim() || '',
+        date_of_birth: dob || '',
+        phone: fullPhoneNumber,
+        conditions: [],
+        preferred_unit: 'mg_dl',
+      };
+      saveRegisteredAccount({
+        id: userId,
+        firstName: profile.first_name || 'User',
+        lastName: profile.last_name || '',
+        dob: profile.date_of_birth,
+        phone: fullPhoneNumber,
+        password: 'otp_verified',
+        profile,
+        createdAt: new Date().toISOString(),
+      });
 
-      let otpValid = otpCode.trim() === '123456';
-      if (!otpValid && isSupabaseConfigured()) {
-        try {
-          const supabase = createClient();
-          const { error } = await supabase.auth.verifyOtp({
-            phone: fullPhoneNumber,
-            token: otpCode.trim(),
-            type: 'sms',
-          });
-          if (!error) otpValid = true;
-        } catch (e: any) {
-          console.warn('Supabase OTP verify error:', e.message);
-        }
-      }
-
-      if (!otpValid) {
-        setLoading(false);
-        setErrorMessage('Invalid verification code. Enter 123456 for test access.');
-        return;
-      }
-
-      const existing = findAccountByPhone(fullPhoneNumber);
-      let profile = existing?.profile;
-      let isNew = false;
-      if (!profile) {
-        isNew = true;
-        const userId = generateUUID();
-        profile = {
-          id: userId,
-          full_name: `${firstName.trim()} ${lastName.trim()}`.trim() || 'User',
-          first_name: firstName.trim() || 'User',
-          last_name: lastName.trim() || '',
-          date_of_birth: dob || '',
-          phone: fullPhoneNumber,
-          conditions: [],
-          preferred_unit: 'mg_dl',
-        };
-        saveRegisteredAccount({
-          id: userId,
-          firstName: profile.first_name || 'User',
-          lastName: profile.last_name || '',
-          dob: profile.date_of_birth,
-          phone: fullPhoneNumber,
-          password: 'otp_verified',
-          profile,
-          createdAt: new Date().toISOString(),
-        });
-      }
-
-      await completeAuthAndNavigate(profile, isNew);
+      await completeAuthAndNavigate(profile, true);
       return;
     }
 
-    // B. Request SMS OTP step
     if (phoneAuthMethod === 'otp' && !otpSent) {
       setLoading(true);
       setTestOtpNotice('SMS Gateway in test mode. Verification code is 123456.');
@@ -502,69 +472,48 @@ export default function AuthPage() {
       return;
     }
 
-    // C. Password / PIN Based Phone Auth
+    if (!firstName.trim()) {
+      setErrorMessage('Please provide your first name.');
+      return;
+    }
+    if (!lastName.trim()) {
+      setErrorMessage('Please provide your last name.');
+      return;
+    }
+    if (!dob) {
+      setErrorMessage('Please select your date of birth.');
+      return;
+    }
     if (!password) {
       setErrorMessage('Please enter a password or PIN.');
       return;
     }
 
     setLoading(true);
+    const userId = generateUUID();
+    const newProfile: UserProfile = {
+      id: userId,
+      full_name: `${firstName.trim()} ${lastName.trim()}`,
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+      date_of_birth: dob,
+      phone: fullPhoneNumber,
+      conditions: [],
+      preferred_unit: 'mg_dl',
+    };
 
-    if (authMode === 'signup') {
-      if (!firstName.trim()) {
-        setErrorMessage('Please provide your first name.');
-        setLoading(false);
-        return;
-      }
-      if (!lastName.trim()) {
-        setErrorMessage('Please provide your last name.');
-        setLoading(false);
-        return;
-      }
-      if (!dob) {
-        setErrorMessage('Please select your date of birth.');
-        setLoading(false);
-        return;
-      }
+    saveRegisteredAccount({
+      id: userId,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      dob,
+      phone: fullPhoneNumber,
+      password,
+      profile: newProfile,
+      createdAt: new Date().toISOString(),
+    });
 
-      const userId = generateUUID();
-      const newProfile: UserProfile = {
-        id: userId,
-        full_name: `${firstName.trim()} ${lastName.trim()}`,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        date_of_birth: dob,
-        phone: fullPhoneNumber,
-        conditions: [],
-        preferred_unit: 'mg_dl',
-      };
-
-      saveRegisteredAccount({
-        id: userId,
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        dob,
-        phone: fullPhoneNumber,
-        password,
-        profile: newProfile,
-        createdAt: new Date().toISOString(),
-      });
-
-      await completeAuthAndNavigate(newProfile, true);
-    } else {
-      const existingAccount = findAccountByPhone(fullPhoneNumber);
-      if (existingAccount) {
-        if (existingAccount.password === password) {
-          await completeAuthAndNavigate(existingAccount.profile, false);
-        } else {
-          setLoading(false);
-          setErrorMessage('Incorrect password or PIN for this mobile number.');
-        }
-      } else {
-        setLoading(false);
-        setErrorMessage(`No account found for ${fullPhoneNumber}. Please switch to Sign Up to register.`);
-      }
-    }
+    await completeAuthAndNavigate(newProfile, true);
   };
 
   return (
@@ -601,6 +550,7 @@ export default function AuthPage() {
             type="button"
             onClick={() => {
               setAuthMode('signin');
+              setSavedAccounts(getRegisteredAccounts());
               setErrorMessage(null);
               setSuccessMessage(null);
             }}
@@ -709,15 +659,14 @@ export default function AuthPage() {
           </div>
         )}
 
-        {/* Form Fields: First Name, Last Name, DOB, and Credentials */}
+        {/* Form Fields */}
         <form
           onSubmit={channel === 'email' ? handleEmailAuth : handlePhoneAuth}
           className="space-y-4"
         >
-          {/* Identity Fields (Visible in Sign Up mode) */}
+          {/* Identity Fields (Visible ONLY in Sign Up mode) */}
           {authMode === 'signup' && (
             <div className="space-y-4 pt-1 animate-in fade-in duration-150">
-              {/* First Name & Last Name Grid */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wide mb-1.5">
@@ -746,7 +695,6 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              {/* Date of Birth Field */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wide">
@@ -774,9 +722,47 @@ export default function AuthPage() {
           {/* Email Channel Inputs */}
           {channel === 'email' && (
             <div className="space-y-4">
+              {authMode === 'signin' && savedAccounts.filter((a) => a.email).length > 0 && (
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-black text-slate-600 uppercase tracking-wide">
+                    Select Existing Account ID
+                  </label>
+                  <div className="space-y-1.5">
+                    {savedAccounts
+                      .filter((a) => a.email)
+                      .map((acc) => (
+                        <button
+                          key={acc.id}
+                          type="button"
+                          onClick={() => completeAuthAndNavigate(acc.profile, false)}
+                          className="w-full p-2.5 rounded-2xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/40 flex items-center justify-between text-left transition tap-press"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                              {(acc.firstName || acc.email || 'U')[0].toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-black text-slate-900 truncate">
+                                {acc.email}
+                              </p>
+                              <p className="text-[11px] text-slate-500 truncate">
+                                {acc.firstName} {acc.lastName}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-xs font-bold text-blue-600 shrink-0 ml-2">
+                            Use Account →
+                          </span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wide mb-1.5">
-                  Email Address <span className="text-rose-500">*</span>
+                  {authMode === 'signin' ? 'Account ID (Email Address)' : 'Email Address'}{' '}
+                  <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -789,28 +775,29 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wide mb-1.5">
-                  {authMode === 'signup' ? 'Create Password' : 'Password'}{' '}
-                  <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-3.5 py-2.5 pr-10 bg-slate-50/80 rounded-2xl border border-slate-200/90 text-xs sm:text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+              {authMode === 'signup' && (
+                <div>
+                  <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wide mb-1.5">
+                    Create Password <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full px-3.5 py-2.5 pr-10 bg-slate-50/80 rounded-2xl border border-slate-200/90 text-xs sm:text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -819,7 +806,10 @@ export default function AuthPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wide mb-1.5">
-                  Mobile Phone Number <span className="text-rose-500">*</span>
+                  {authMode === 'signin'
+                    ? 'Account ID (Mobile Phone Number)'
+                    : 'Mobile Phone Number'}{' '}
+                  <span className="text-rose-500">*</span>
                 </label>
                 <div className="flex gap-2">
                   <select
@@ -843,78 +833,82 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              {phoneAuthMethod === 'password' ? (
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wide">
-                      {authMode === 'signup' ? 'Create Password / PIN' : 'Password or PIN'}{' '}
-                      <span className="text-rose-500">*</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPhoneAuthMethod('otp');
-                        setOtpSent(false);
-                        setErrorMessage(null);
-                      }}
-                      className="text-[10px] text-blue-600 hover:underline font-bold"
-                    >
-                      Prefer SMS OTP?
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-3.5 py-2.5 pr-10 bg-slate-50/80 rounded-2xl border border-slate-200/90 text-xs sm:text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-[11px] font-black text-blue-900 uppercase">
-                      {otpSent ? 'Enter 6-Digit OTP Code' : 'SMS Verification'}
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPhoneAuthMethod('password');
-                        setOtpSent(false);
-                        setErrorMessage(null);
-                      }}
-                      className="text-[10px] text-blue-600 hover:underline font-bold"
-                    >
-                      Use Password instead
-                    </button>
-                  </div>
-
-                  {otpSent ? (
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        maxLength={6}
-                        value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value)}
-                        className="w-full text-center tracking-widest text-lg font-black bg-white py-2 rounded-xl border border-blue-300 outline-none focus:ring-2 focus:ring-blue-500/20 tabular-nums"
-                      />
+              {authMode === 'signup' &&
+                (phoneAuthMethod === 'password' ? (
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wide">
+                        Create Password / PIN <span className="text-rose-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPhoneAuthMethod('otp');
+                          setOtpSent(false);
+                          setErrorMessage(null);
+                        }}
+                        className="text-[10px] text-blue-600 hover:underline font-bold"
+                      >
+                        Prefer SMS OTP?
+                      </button>
                     </div>
-                  ) : (
-                    <p className="text-[11px] text-slate-500 font-medium">
-                      Click below to receive a 6-digit verification code.
-                    </p>
-                  )}
-                </div>
-              )}
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full px-3.5 py-2.5 pr-10 bg-slate-50/80 rounded-2xl border border-slate-200/90 text-xs sm:text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-black text-blue-900 uppercase">
+                        {otpSent ? 'Enter 6-Digit OTP Code' : 'SMS Verification'}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPhoneAuthMethod('password');
+                          setOtpSent(false);
+                          setErrorMessage(null);
+                        }}
+                        className="text-[10px] text-blue-600 hover:underline font-bold"
+                      >
+                        Use Password instead
+                      </button>
+                    </div>
+
+                    {otpSent ? (
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          maxLength={6}
+                          value={otpCode}
+                          onChange={(e) => setOtpCode(e.target.value)}
+                          className="w-full text-center tracking-widest text-lg font-black bg-white py-2 rounded-xl border border-blue-300 outline-none focus:ring-2 focus:ring-blue-500/20 tabular-nums"
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-500 font-medium">
+                        Click below to receive a 6-digit verification code.
+                      </p>
+                    )}
+                  </div>
+                ))}
             </div>
           )}
 
@@ -926,7 +920,7 @@ export default function AuthPage() {
           >
             {loading && <RefreshCw className="w-4 h-4 animate-spin" />}
             <span>
-              {channel === 'phone' && phoneAuthMethod === 'otp'
+              {authMode === 'signup' && channel === 'phone' && phoneAuthMethod === 'otp'
                 ? otpSent
                   ? 'Verify'
                   : 'Send Mobile OTP Code'
@@ -944,7 +938,7 @@ export default function AuthPage() {
         </div>
       </div>
 
-      {/* Google Account Sign-Up / Sign-In Modal */}
+      {/* Google Account Chooser Modal (Only asks which Account ID to use — never First & Last Name) */}
       {showGoogleModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-5">
@@ -965,12 +959,12 @@ export default function AuthPage() {
                   />
                   <path
                     fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l.81-.63z"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                   />
                 </svg>
                 <div>
                   <h3 className="text-sm font-black text-slate-900">Sign in with Google</h3>
-                  <p className="text-[11px] text-slate-500">Continue to Medtrac</p>
+                  <p className="text-[11px] text-slate-500">Choose an account to continue to Medtrac</p>
                 </div>
               </div>
               <button
@@ -982,29 +976,43 @@ export default function AuthPage() {
               </button>
             </div>
 
+            {/* Existing accounts list for 1-click seamless sign-in */}
+            {savedAccounts.filter((a) => a.email).length > 0 && (
+              <div className="space-y-2">
+                {savedAccounts
+                  .filter((a) => a.email)
+                  .map((acc) => (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={() => handleGoogleAccountSelect(acc.email!)}
+                      className="w-full p-3 rounded-2xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/40 flex items-center gap-3 text-left transition tap-press"
+                    >
+                      <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                        {(acc.firstName || acc.email || 'U')[0].toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-black text-slate-900 truncate">{acc.email}</p>
+                        <p className="text-[11px] text-slate-500 truncate">
+                          {acc.firstName} {acc.lastName}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            )}
+
             <form onSubmit={handleGoogleModalSubmit} className="space-y-3">
               <div>
                 <label className="block text-[11px] font-black text-slate-700 uppercase mb-1">
-                  First &amp; Last Name <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={googleName}
-                  onChange={(e) => setGoogleName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-black text-slate-700 uppercase mb-1">
-                  Google Email <span className="text-rose-500">*</span>
+                  Account ID (Google Email) <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="email"
                   required
                   value={googleEmail}
                   onChange={(e) => setGoogleEmail(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
               <button

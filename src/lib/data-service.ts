@@ -40,6 +40,23 @@ export async function getStoredProfile(): Promise<UserProfile | null> {
 export async function saveStoredProfile(profile: UserProfile): Promise<UserProfile> {
   if (typeof window !== 'undefined') {
     localStorage.setItem('medtrac_profile', JSON.stringify(profile));
+    try {
+      const rawAccounts = localStorage.getItem('medtrac_registered_accounts');
+      if (rawAccounts) {
+        const accounts = JSON.parse(rawAccounts);
+        if (Array.isArray(accounts)) {
+          const updatedAccounts = accounts.map((acc) =>
+            acc.id === profile.id ||
+            (profile.email && acc.email?.toLowerCase() === profile.email.toLowerCase())
+              ? { ...acc, profile }
+              : acc
+          );
+          localStorage.setItem('medtrac_registered_accounts', JSON.stringify(updatedAccounts));
+        }
+      }
+    } catch {
+      // Ignore sync warning
+    }
   }
 
   if (isSupabaseConfigured()) {
