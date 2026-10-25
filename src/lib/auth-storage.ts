@@ -48,7 +48,7 @@ export function isSessionAuthenticated(): boolean {
  * Clears any cached lab results, life events, medications, or doctor briefs
  * when a new user signs up so every screen starts completely empty by default.
  */
-export function clearAllUserRecords(): void {
+export function clearAllUserRecords(profileId?: string): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem('medtrac_results');
@@ -57,6 +57,11 @@ export function clearAllUserRecords(): void {
     localStorage.removeItem('medtrac_brief_GP');
     localStorage.removeItem('medtrac_brief_Endocrinologist');
     localStorage.removeItem('medtrac_brief_Nutritionist');
+    if (profileId) {
+      localStorage.removeItem(`medtrac_results_${profileId}`);
+      localStorage.removeItem(`medtrac_events_${profileId}`);
+      localStorage.removeItem(`medtrac_medications_${profileId}`);
+    }
   } catch (e) {
     console.warn('Error clearing user records:', e);
   }

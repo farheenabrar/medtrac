@@ -148,7 +148,7 @@ export default function AuthPage() {
   // Complete authentication and navigate seamlessly to Feed Filters
   const completeAuthAndNavigate = async (profile: UserProfile, isNewUser: boolean) => {
     if (isNewUser) {
-      clearAllUserRecords();
+      clearAllUserRecords(profile.id);
     }
     await saveStoredProfile(profile);
     setSessionAuthenticated(true);
@@ -205,10 +205,12 @@ export default function AuthPage() {
     setLoading(true);
     setShowGoogleModal(false);
 
-    const existing = findAccountByEmail(chosenEmail);
-    if (existing) {
-      await completeAuthAndNavigate(existing.profile, false);
-      return;
+    if (authMode === 'signin') {
+      const existing = findAccountByEmail(chosenEmail);
+      if (existing) {
+        await completeAuthAndNavigate(existing.profile, false);
+        return;
+      }
     }
 
     const derivedName =

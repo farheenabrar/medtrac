@@ -247,24 +247,47 @@ export default function DoctorBriefPage() {
         </div>
 
         {/* Doctor Specialty Tabs */}
-        <div className="inline-flex rounded-2xl bg-slate-100/90 p-1 border border-slate-200 shadow-2xs">
-          {(['GP', 'Endocrinologist', 'Nutritionist'] as const).map((type) => (
-            <button
-              key={type}
-              onClick={() => setDoctorType(type)}
-              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all tap-press ${
-                doctorType === type
-                  ? 'bg-white text-blue-700 shadow-2xs ring-1 ring-slate-900/5'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {type}
-            </button>
-          ))}
-        </div>
+        {hasRecords && (
+          <div className="inline-flex rounded-2xl bg-slate-100/90 p-1 border border-slate-200 shadow-2xs">
+            {(['GP', 'Endocrinologist', 'Nutritionist'] as const).map((type) => (
+              <button
+                key={type}
+                onClick={() => setDoctorType(type)}
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all tap-press ${
+                  doctorType === type
+                    ? 'bg-white text-blue-700 shadow-2xs ring-1 ring-slate-900/5'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Action Toolbar */}
+      {!hasRecords ? (
+        <div className="card-depth p-10 text-center space-y-4 bg-white rounded-3xl">
+          <p className="text-sm sm:text-base font-bold text-slate-800">
+            No Doctor Brief generated yet.
+          </p>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            Upload and confirm your laboratory reports in the Uploads screen to generate your consultation brief.
+          </p>
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => router.push('/upload')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition tap-press"
+            >
+              <UploadCloud className="w-4 h-4" />
+              <span>Go to Uploads</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Action Toolbar */}
       <div className="card-depth flex flex-wrap items-center justify-between gap-3 p-4 no-print">
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200/80 bg-slate-50 text-xs">
@@ -569,6 +592,8 @@ export default function DoctorBriefPage() {
             {brief.disclaimer}
           </div>
         </div>
+      )}
+      </>
       )}
 
       {/* Share Modal with QR Code */}

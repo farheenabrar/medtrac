@@ -250,6 +250,9 @@ export default function DashboardPage() {
     return null;
   }
 
+  const isEmptyDashboard =
+    results.length === 0 && events.length === 0 && medications.length === 0;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
       {/* Top Banner / Controls */}
@@ -264,53 +267,91 @@ export default function DashboardPage() {
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Harmonized trends across your Mumbai, Dubai, and worldwide lab reports.
+            Track your lab trends, medications, and health milestones.
           </p>
         </div>
 
-        {/* Global Controls & Unit Switcher */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          {/* Unit Toggle with smooth micro-interactions */}
-          <div className="inline-flex rounded-2xl bg-slate-100 p-1 border border-slate-200 shadow-xs">
+        {!isEmptyDashboard && (
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="inline-flex rounded-2xl bg-slate-100 p-1 border border-slate-200 shadow-xs">
+              <button
+                onClick={() => handleToggleUnit('mg_dl')}
+                className={`px-3 py-1.5 text-xs font-black rounded-xl transition-all tap-press ${
+                  unitSystem === 'mg_dl'
+                    ? 'bg-white text-blue-600 shadow-[0_2px_8px_rgba(0,0,0,0.06)]'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                mg/dL (US/India)
+              </button>
+              <button
+                onClick={() => handleToggleUnit('mmol_l')}
+                className={`px-3 py-1.5 text-xs font-black rounded-xl transition-all tap-press ${
+                  unitSystem === 'mmol_l'
+                    ? 'bg-white text-blue-600 shadow-[0_2px_8px_rgba(0,0,0,0.06)]'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                mmol/L (UK/UAE)
+              </button>
+            </div>
+
             <button
-              onClick={() => handleToggleUnit('mg_dl')}
-              className={`px-3 py-1.5 text-xs font-black rounded-xl transition-all tap-press ${
-                unitSystem === 'mg_dl'
-                  ? 'bg-white text-blue-600 shadow-[0_2px_8px_rgba(0,0,0,0.06)]'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
+              onClick={() => router.push('/upload')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border border-slate-200/80 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs transition-all shadow-[0_2px_12px_rgba(0,0,0,0.04)] tap-press"
             >
-              mg/dL (US/India)
+              <Upload className="w-3.5 h-3.5 text-blue-600" />
+              <span>Upload More</span>
             </button>
+
             <button
-              onClick={() => handleToggleUnit('mmol_l')}
-              className={`px-3 py-1.5 text-xs font-black rounded-xl transition-all tap-press ${
-                unitSystem === 'mmol_l'
-                  ? 'bg-white text-blue-600 shadow-[0_2px_8px_rgba(0,0,0,0.06)]'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
+              onClick={() => router.push('/brief')}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black text-xs shadow-[0_4px_12px_rgba(37,99,235,0.25)] transition-all tap-press"
             >
-              mmol/L (UK/UAE)
+              <span>Doctor Brief</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
-
-          <button
-            onClick={() => router.push('/upload')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border border-slate-200/80 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs transition-all shadow-[0_2px_12px_rgba(0,0,0,0.04)] tap-press"
-          >
-            <Upload className="w-3.5 h-3.5 text-blue-600" />
-            <span>Upload More</span>
-          </button>
-
-          <button
-            onClick={() => router.push('/brief')}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black text-xs shadow-[0_4px_12px_rgba(37,99,235,0.25)] transition-all tap-press"
-          >
-            <span>Doctor Brief</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        )}
       </div>
+
+      {isEmptyDashboard ? (
+        <div className="card-depth p-10 text-center space-y-4 bg-white rounded-3xl">
+          <p className="text-sm sm:text-base font-bold text-slate-800">
+            No lab reports, medications, or milestones added yet.
+          </p>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            Upload your lab reports or add your medications and life events to populate your metabolic health dashboard.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => router.push('/upload')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition tap-press"
+            >
+              <Upload className="w-4 h-4" />
+              <span>Upload Lab Reports</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowMedModal(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs transition tap-press"
+            >
+              <Plus className="w-3.5 h-3.5 text-blue-600" />
+              <span>Add Medicine</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowEventModal(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs transition tap-press"
+            >
+              <Plus className="w-3.5 h-3.5 text-purple-600" />
+              <span>Add Event</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
 
       {/* The 5 Key Metabolic Metric Cards with Heavy Tabular Numbers & Depth */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -577,6 +618,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      </>
+      )}
 
       {/* Add Event Modal */}
       {showEventModal && (

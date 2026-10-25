@@ -286,7 +286,16 @@ export default function UploadPage() {
       </div>
 
       {/* Verification Container */}
-      {rows.length > 0 && (
+      {rows.length === 0 ? (
+        <div className="card-depth p-8 text-center space-y-2 bg-white rounded-3xl">
+          <p className="text-sm font-bold text-slate-700">
+            No lab reports uploaded for review yet.
+          </p>
+          <p className="text-xs text-slate-400">
+            Upload a PDF or photo above to extract and review your test results here.
+          </p>
+        </div>
+      ) : (
         <div className="card-depth overflow-hidden">
           {/* Table Header Bar */}
           <div className="p-4 sm:p-5 bg-slate-50/80 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
