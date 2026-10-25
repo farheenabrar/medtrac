@@ -730,7 +730,7 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={handleAddCondition}
-              className="px-5 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition tap-press shrink-0"
+              className="px-6 py-3.5 rounded-2xl bg-gradient-to-b from-[#1e90ff] to-[#1d63ff] hover:from-blue-600 hover:to-blue-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-[0_4px_14px_rgba(29,99,255,0.25)] tap-press shrink-0"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>Add Condition</span>
@@ -743,9 +743,9 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={handleLogout}
-            className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-600 font-black text-sm transition tap-press"
+            className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-b from-[#1e90ff] to-[#1d63ff] hover:from-blue-600 hover:to-blue-700 active:bg-blue-800 text-white font-black text-sm sm:text-base transition-all shadow-[0_4px_14px_rgba(29,99,255,0.28)] tap-press flex items-center justify-center gap-2"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-4 h-4 stroke-[2.5]" />
             <span>Log Out</span>
           </button>
 
@@ -758,9 +758,9 @@ export default function ProfilePage() {
             )}
             <button
               type="submit"
-              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-[#1d63ff] hover:bg-blue-700 active:bg-blue-800 text-white font-black text-sm sm:text-base transition-all shadow-md tap-press flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-b from-[#1e90ff] to-[#1d63ff] hover:from-blue-600 hover:to-blue-700 active:bg-blue-800 text-white font-black text-sm sm:text-base transition-all shadow-[0_4px_14px_rgba(29,99,255,0.28)] tap-press flex items-center justify-center gap-2"
             >
-              <Save className="w-4 h-4" />
+              <Save className="w-4 h-4 stroke-[2.5]" />
               <span>Save Profile</span>
             </button>
           </div>
