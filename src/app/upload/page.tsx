@@ -235,12 +235,6 @@ export default function UploadPage() {
     );
   };
 
-  const setRowStatus = (id: string, status: 'approved' | 'disapproved') => {
-    setRows((prev) =>
-      prev.map((row) => (row.id === id ? { ...row, status } : row))
-    );
-  };
-
   const deleteRow = (id: string) => {
     setRows((prev) => prev.filter((r) => r.id !== id));
   };
@@ -251,14 +245,8 @@ export default function UploadPage() {
       return;
     }
 
-    const approvedRows = rows.filter((r) => r.status !== 'disapproved');
-    if (approvedRows.length === 0) {
-      alert('Please approve at least one lab result before confirming.');
-      return;
-    }
-
     // Convert reviewed rows to standardized LabResult records
-    const labResults: LabResult[] = approvedRows.map((r) => {
+    const labResults: LabResult[] = rows.map((r) => {
       const config = CANONICAL_TESTS[r.canonical_key];
       const standardUnit = config ? config.defaultMgUnit : r.raw_unit;
       const normalizedValue = convertValue(r.canonical_key, r.raw_value, r.raw_unit, standardUnit);
@@ -425,16 +413,11 @@ export default function UploadPage() {
                   Review lab results
                 </h2>
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full badge-optimal uppercase tracking-wide">
-                  {rows.filter((r) => r.status !== 'disapproved').length} Approved
+                  {rows.length} Ready
                 </span>
-                {rows.filter((r) => r.status === 'disapproved').length > 0 && (
-                  <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full badge-urgent uppercase tracking-wide">
-                    {rows.filter((r) => r.status === 'disapproved').length} Disapproved
-                  </span>
-                )}
               </div>
               <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                Verify each result below: approve verified values or disapprove any you do not verify.
+                Verify each extracted value below. Use the delete button to remove any unwanted result.
               </p>
             </div>
 
@@ -469,16 +452,11 @@ export default function UploadPage() {
               <tbody className="divide-y divide-slate-100 font-medium">
                 {rows.map((row) => {
                   const isLowConfidence = row.confidence_score < 0.85;
-                  const isDisapproved = row.status === 'disapproved';
                   return (
                     <tr
                       key={row.id}
                       className={`hover:bg-slate-50/80 transition-all ${
-                        isDisapproved
-                          ? 'bg-rose-50/30 opacity-60'
-                          : isLowConfidence
-                          ? 'bg-[#fffbeb]/60'
-                          : ''
+                        isLowConfidence ? 'bg-[#fffbeb]/60' : ''
                       }`}
                     >
                       {/* Raw Test Name */}
@@ -579,36 +557,17 @@ export default function UploadPage() {
                         </button>
                       </td>
 
-                      {/* Action: Approve and Disapprove Buttons */}
+                      {/* Action: Delete Option */}
                       <td className="py-3 px-4 text-center">
-                        <div className="inline-flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100/80 border border-slate-200/80 shadow-2xs">
-                          <button
-                            type="button"
-                            onClick={() => setRowStatus(row.id, 'approved')}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all tap-press ${
-                              row.status !== 'disapproved'
-                                ? 'bg-emerald-600 text-white shadow-2xs'
-                                : 'text-slate-500 hover:text-emerald-700 hover:bg-emerald-50'
-                            }`}
-                            title="Approve (Verified by you)"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Approve</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setRowStatus(row.id, 'disapproved')}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all tap-press ${
-                              row.status === 'disapproved'
-                                ? 'bg-rose-600 text-white shadow-2xs'
-                                : 'text-slate-500 hover:text-rose-700 hover:bg-rose-50'
-                            }`}
-                            title="Disapprove (Not verified by you)"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            <span>Disapprove</span>
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => deleteRow(row.id)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-all tap-press shadow-2xs"
+                          title="Delete test result"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
+                        </button>
                       </td>
                     </tr>
                   );
@@ -621,14 +580,11 @@ export default function UploadPage() {
           <div className="lg:hidden divide-y divide-slate-100 p-3 space-y-3">
             {rows.map((row) => {
               const isLowConfidence = row.confidence_score < 0.85;
-              const isDisapproved = row.status === 'disapproved';
               return (
                 <div
                   key={row.id}
                   className={`p-4 rounded-3xl border transition-all duration-200 tap-press ${
-                    isDisapproved
-                      ? 'bg-rose-50/30 border-rose-200/80 opacity-60'
-                      : isLowConfidence
+                    isLowConfidence
                       ? 'bg-[#fffbeb]/70 border-[#fde68a] shadow-[0_2px_12px_rgba(217,119,6,0.06)]'
                       : 'bg-white border-slate-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.04)]'
                   }`}
@@ -658,9 +614,11 @@ export default function UploadPage() {
                       <button
                         type="button"
                         onClick={() => deleteRow(row.id)}
-                        className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 tap-press"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition tap-press shadow-2xs"
+                        title="Delete test result"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
                       </button>
                     </div>
                   </div>
@@ -745,49 +703,6 @@ export default function UploadPage() {
                       <span>Low OCR confidence: please inspect against source report</span>
                     </div>
                   )}
-
-                  {/* Action Part: Approve & Disapprove Buttons */}
-                  <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100 mt-3">
-                    <span className="text-[11px] font-bold">
-                      {row.status === 'disapproved' ? (
-                        <span className="text-rose-600 font-bold flex items-center gap-1">
-                          <X className="w-3.5 h-3.5" /> Disapproved
-                        </span>
-                      ) : (
-                        <span className="text-emerald-700 font-bold flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5" /> Approved
-                        </span>
-                      )}
-                    </span>
-                    <div className="inline-flex items-center gap-1 p-1 rounded-2xl bg-slate-100/80 border border-slate-200/80 shadow-2xs">
-                      <button
-                        type="button"
-                        onClick={() => setRowStatus(row.id, 'approved')}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all tap-press ${
-                          row.status !== 'disapproved'
-                            ? 'bg-emerald-600 text-white shadow-2xs'
-                            : 'text-slate-600 hover:text-emerald-700 hover:bg-emerald-50'
-                        }`}
-                        title="Approve (Verified by user)"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Approve</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setRowStatus(row.id, 'disapproved')}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all tap-press ${
-                          row.status === 'disapproved'
-                            ? 'bg-rose-600 text-white shadow-2xs'
-                            : 'text-slate-600 hover:text-rose-700 hover:bg-rose-50'
-                        }`}
-                        title="Disapprove (Not verified by user)"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                        <span>Disapprove</span>
-                      </button>
-                    </div>
-                  </div>
                 </div>
               );
             })}
