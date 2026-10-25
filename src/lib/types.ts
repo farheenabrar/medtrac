@@ -11,6 +11,10 @@ export type UnitSystem = 'mg_dl' | 'mmol_l';
 export interface UserProfile {
   id: string;
   full_name: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string;
   date_of_birth: string;
   preferred_unit?: UnitSystem;
   conditions: string[];

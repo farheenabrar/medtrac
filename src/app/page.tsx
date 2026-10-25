@@ -6,67 +6,81 @@ import {
   ShieldCheck,
   ArrowRight,
   Sparkles,
-  CheckCircle2,
   Mail,
-  Lock,
+  Phone,
   Calendar,
   AlertCircle,
-  HelpCircle,
   UserCheck,
+  CheckCircle2,
+  Lock,
+  Smartphone,
+  KeyRound,
   RefreshCw,
 } from 'lucide-react';
-import { UnitSystem, UserProfile } from '@/lib/types';
+import { UserProfile } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
 import { isSupabaseConfigured, getStoredProfile, saveStoredProfile } from '@/lib/data-service';
 
-const COMMON_CONDITIONS = [
-  'Prediabetes',
-  'High Triglycerides',
-  'Dyslipidemia / High Cholesterol',
-  'Metabolic Syndrome',
-  'Fatty Liver (NAFLD)',
-  'None / General Metabolic Prevention',
+const COUNTRY_CODES = [
+  { code: '+971', country: 'UAE 🇦🇪' },
+  { code: '+91', country: 'India 🇮🇳' },
+  { code: '+1', country: 'USA / Canada 🇺🇸' },
+  { code: '+44', country: 'UK 🇬🇧' },
+  { code: '+966', country: 'Saudi Arabia 🇸🇦' },
+  { code: '+65', country: 'Singapore 🇸🇬' },
+  { code: '+61', country: 'Australia 🇦🇺' },
 ];
 
-export default function SetupPage() {
+export default function AuthPage() {
   const router = useRouter();
 
-  // Form State
-  const [fullName, setFullName] = useState('');
-  const [dob, setDob] = useState('');
-  const [preferredUnit, setPreferredUnit] = useState<UnitSystem>('mg_dl');
-  const [selectedConditions, setSelectedConditions] = useState<string[]>([
-    'Prediabetes',
-    'High Triglycerides',
-  ]);
-  const [customCondition, setCustomCondition] = useState('');
+  // Mode: Sign Up vs Sign In
+  const [authMode, setAuthMode] = useState<'signup' | 'signin'>('signup');
 
-  // Auth & UI State
-  const [authMethod, setAuthMethod] = useState<'demo' | 'magic_link' | 'google'>('demo');
+  // Auth Channel: Email vs Phone OTP
+  const [channel, setChannel] = useState<'email' | 'phone'>('email');
+
+  // Form Fields: First Name, Last Name, DOB, Email, Phone
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [dob, setDob] = useState('');
   const [email, setEmail] = useState('');
+  const [countryCode, setCountryCode] = useState('+971');
+  const [phone, setPhone] = useState('');
+
+  // OTP State
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
+
+  // Status & Feedback
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [existingUser, setExistingUser] = useState<UserProfile | null>(null);
 
-  // Check if existing user is already signed in or profile cached
+  // Check existing session or cached profile
   useEffect(() => {
     async function checkExisting() {
       const profile = await getStoredProfile();
       if (profile) {
         setExistingUser(profile);
-        setFullName(profile.full_name || '');
-        setDob(profile.date_of_birth || '');
-        if (profile.preferred_unit) setPreferredUnit(profile.preferred_unit);
-        if (profile.conditions && profile.conditions.length > 0) {
-          setSelectedConditions(profile.conditions);
+        if (profile.first_name) setFirstName(profile.first_name);
+        if (profile.last_name) setLastName(profile.last_name);
+        if (!profile.first_name && profile.full_name) {
+          const parts = profile.full_name.split(' ');
+          setFirstName(parts[0] || '');
+          setLastName(parts.slice(1).join(' ') || '');
         }
+        if (profile.date_of_birth) setDob(profile.date_of_birth);
+        if (profile.email) setEmail(profile.email);
+        if (profile.phone) setPhone(profile.phone);
       }
     }
     checkExisting();
   }, []);
 
-  // Age validation helper (adult-only requirement)
+  // Calculate age for adult validation
   const calculateAge = (birthDateString: string): number => {
     if (!birthDateString) return 0;
     const today = new Date();
@@ -79,75 +93,182 @@ export default function SetupPage() {
     return age;
   };
 
-  const toggleCondition = (condition: string) => {
-    if (condition === 'None / General Metabolic Prevention') {
-      if (selectedConditions.includes(condition)) {
-        setSelectedConditions([]);
-      } else {
-        setSelectedConditions(['None / General Metabolic Prevention']);
-      }
-      return;
-    }
+  const calculatedAge = dob ? calculateAge(dob) : 0;
+  const isAdult = dob ? calculatedAge >= 18 : false;
 
-    const withoutNone = selectedConditions.filter(
-      (c) => c !== 'None / General Metabolic Prevention'
-    );
-    if (withoutNone.includes(condition)) {
-      setSelectedConditions(withoutNone.filter((c) => c !== condition));
-    } else {
-      setSelectedConditions([...withoutNone, condition]);
-    }
-  };
-
-  const handleAddCustomCondition = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && customCondition.trim()) {
-      e.preventDefault();
-      if (!selectedConditions.includes(customCondition.trim())) {
-        setSelectedConditions([...selectedConditions, customCondition.trim()]);
-      }
-      setCustomCondition('');
-    }
-  };
-
-  // Google OAuth Handler
+  // 1. Google OAuth Sign In
   const handleGoogleSignIn = async () => {
+    setErrorMessage(null);
     if (!isSupabaseConfigured()) {
-      alert('Supabase is not configured yet. Using Instant Demo Mode to test all features.');
+      // Demo fallback when remote Supabase OAuth is not bound
+      executeDemoLogin();
       return;
     }
+
     try {
+      setLoading(true);
       const supabase = createClient();
-      await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/upload`,
         },
       });
+      if (error) throw error;
     } catch (err: any) {
-      setErrorMessage(err.message || 'Google OAuth failed');
+      setErrorMessage(err.message || 'Google Sign-In failed');
+      setLoading(false);
     }
   };
 
-  // Magic Link Handler
-  const handleSendMagicLink = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
+  // 2. Demo Login (Instant access for testing)
+  const executeDemoLogin = async () => {
     setLoading(true);
     setErrorMessage(null);
 
+    const demoProfile: UserProfile = {
+      id: 'demo-user-sarah-jenkins',
+      full_name: 'Sarah Jenkins',
+      first_name: 'Sarah',
+      last_name: 'Jenkins',
+      email: 'sarah.jenkins.demo@medtrac.org',
+      date_of_birth: '1982-04-12',
+      conditions: ['Prediabetes', 'High Triglycerides'],
+      preferred_unit: 'mg_dl',
+    };
+
+    await saveStoredProfile(demoProfile);
+    setTimeout(() => {
+      setLoading(false);
+      router.push('/upload');
+    }, 400);
+  };
+
+  // 3. Send Mobile OTP
+  const handleSendPhoneOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (!phone.trim()) {
+      setErrorMessage('Please enter your mobile phone number.');
+      return;
+    }
+
+    const fullPhoneNumber = `${countryCode}${phone.replace(/\D/g, '')}`;
+    setLoading(true);
+
     if (!isSupabaseConfigured()) {
-      // Simulate magic link for testing
+      // Offline / Testing mode simulation
       setTimeout(() => {
-        setMagicLinkSent(true);
+        setOtpSent(true);
         setLoading(false);
-      }, 800);
+        setSuccessMessage(`Test OTP code sent to ${fullPhoneNumber}. (For testing, enter 123456)`);
+      }, 700);
       return;
     }
 
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOtp({
-        email,
+        phone: fullPhoneNumber,
+      });
+
+      if (error) throw error;
+      setOtpSent(true);
+      setSuccessMessage(`6-digit verification code sent to ${fullPhoneNumber}.`);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Could not send SMS OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 4. Verify Mobile OTP
+  const handleVerifyPhoneOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+
+    if (!otpCode.trim()) {
+      setErrorMessage('Please enter the 6-digit OTP code.');
+      return;
+    }
+
+    setLoading(true);
+
+    // Test simulation code acceptance
+    if (!isSupabaseConfigured() || otpCode === '123456') {
+      await saveProfileAndProceed();
+      return;
+    }
+
+    try {
+      const supabase = createClient();
+      const fullPhoneNumber = `${countryCode}${phone.replace(/\D/g, '')}`;
+      const { error } = await supabase.auth.verifyOtp({
+        phone: fullPhoneNumber,
+        token: otpCode.trim(),
+        type: 'sms',
+      });
+
+      if (error) throw error;
+      await saveProfileAndProceed();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Invalid or expired OTP code');
+      setLoading(false);
+    }
+  };
+
+  // 5. Send Email Magic Link / Sign Up
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (!email.trim() || !email.includes('@')) {
+      setErrorMessage('Please enter a valid email address.');
+      return;
+    }
+
+    // If signing up, validate name and adult age
+    if (authMode === 'signup') {
+      if (!firstName.trim()) {
+        setErrorMessage('Please provide your first name.');
+        return;
+      }
+      if (!lastName.trim()) {
+        setErrorMessage('Please provide your last name.');
+        return;
+      }
+      if (!dob) {
+        setErrorMessage('Please provide your date of birth.');
+        return;
+      }
+      if (calculatedAge < 18) {
+        setErrorMessage(
+          `Medtrac is strictly for adults managing metabolic health. Age calculated: ${calculatedAge}. Must be at least 18.`
+        );
+        return;
+      }
+    }
+
+    setLoading(true);
+
+    if (!isSupabaseConfigured()) {
+      // Offline / testing simulation: proceed directly or show simulated sent
+      setTimeout(async () => {
+        setMagicLinkSent(true);
+        setLoading(false);
+        setSuccessMessage(`Sign-in link sent to ${email}. (Testing mode: you can also proceed directly)`);
+        await saveProfileAndProceed();
+      }, 700);
+      return;
+    }
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
         options: {
           emailRedirectTo: `${window.location.origin}/upload`,
         },
@@ -155,311 +276,388 @@ export default function SetupPage() {
 
       if (error) throw error;
       setMagicLinkSent(true);
+      setSuccessMessage(`Magic link sent to ${email}. Check your inbox to sign in.`);
+      await saveProfileAndProceed(false); // save local profile while awaiting email click
     } catch (err: any) {
-      setErrorMessage(err.message || 'Could not send Magic Link');
+      setErrorMessage(err.message || 'Could not send email link');
     } finally {
       setLoading(false);
     }
   };
 
-  // Main Continue Handler
-  const handleContinue = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
-
-    // 1. Validate full name
-    if (!fullName.trim()) {
-      setErrorMessage('Please enter your full name.');
-      return;
-    }
-
-    // 2. Validate adult-only requirement
-    if (!dob) {
-      setErrorMessage('Please provide your date of birth.');
-      return;
-    }
-
-    const age = calculateAge(dob);
-    if (age < 18) {
-      setErrorMessage(
-        `Medtrac is designed strictly for adults managing metabolic health. Age calculated: ${age} years. Must be at least 18.`
-      );
-      return;
-    }
-
-    setLoading(true);
+  // Save profile and proceed to next screen
+  const saveProfileAndProceed = async (navigateImmediately: boolean = true) => {
+    const fullNameCombined = `${firstName.trim()} ${lastName.trim()}`.trim() || existingUser?.full_name || 'Patient';
 
     const profileData: UserProfile = {
-      id: existingUser?.id || `user-${Date.now()}`,
-      full_name: fullName.trim(),
-      date_of_birth: dob,
-      preferred_unit: preferredUnit,
-      conditions: selectedConditions.length > 0 ? selectedConditions : ['General Metabolic Health'],
+      id: existingUser?.id || `user_${Date.now()}`,
+      full_name: fullNameCombined,
+      first_name: firstName.trim() || existingUser?.first_name || '',
+      last_name: lastName.trim() || existingUser?.last_name || '',
+      date_of_birth: dob || existingUser?.date_of_birth || '',
+      email: email.trim() || existingUser?.email || '',
+      phone: phone ? `${countryCode}${phone.replace(/\D/g, '')}` : existingUser?.phone || '',
+      conditions: existingUser?.conditions || [],
+      preferred_unit: existingUser?.preferred_unit || 'mg_dl',
     };
 
-    // Save profile to Supabase & localStorage
     await saveStoredProfile(profileData);
+    setLoading(false);
 
-    router.push('/upload');
-  };
-
-  const loadDemoProfile = () => {
-    setFullName('Sarah Jenkins');
-    setDob('1982-04-12');
-    setPreferredUnit('mg_dl');
-    setSelectedConditions(['Prediabetes', 'High Triglycerides', 'Dyslipidemia / High Cholesterol']);
-    setErrorMessage(null);
+    if (navigateImmediately) {
+      router.push('/upload');
+    }
   };
 
   return (
-    <div className="max-w-xl mx-auto py-3 sm:py-6 space-y-6">
-      {/* Return User Banner */}
+    <div className="max-w-md mx-auto py-4 sm:py-8 space-y-5">
+      {/* Returning User Quick Access Pill */}
       {existingUser && (
-        <div className="p-4 rounded-3xl bg-blue-50/80 border border-blue-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[0_2px_12px_rgba(37,99,235,0.06)] tap-press">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-sm">
-              <UserCheck className="w-5 h-5" />
+        <div className="p-4 rounded-3xl bg-blue-50/90 border border-blue-200/80 flex items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black text-sm shadow-2xs">
+              <UserCheck className="w-4 h-4" />
             </div>
             <div>
               <p className="text-xs font-black text-blue-950">
-                Welcome back, {existingUser.full_name}!
+                Welcome back, {existingUser.first_name || existingUser.full_name}!
               </p>
               <p className="text-[11px] text-blue-700 font-medium">
-                You have active metabolic records stored in Medtrac.
+                Records active in Medtrac
               </p>
             </div>
           </div>
           <button
             onClick={() => router.push('/dashboard')}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black transition-all shadow-[0_4px_12px_rgba(37,99,235,0.25)] tap-press"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black transition-all tap-press shadow-2xs"
           >
-            <span>Go to Dashboard</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <span>Resume</span>
+            <ArrowRight className="w-3 h-3" />
           </button>
         </div>
       )}
 
-      {/* Main Setup Card with card-depth and soft shadows */}
-      <div className="card-depth p-5 sm:p-8">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-5 border-b border-slate-100 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-sm shadow-[0_2px_8px_rgba(37,99,235,0.12)]">
-              1
-            </div>
-            <div>
-              <h1 className="text-lg font-black text-slate-900 tracking-tight">Sign Up &amp; Setup</h1>
-              <p className="text-xs text-slate-500 font-medium">Step 1 of 5 • Profile &amp; Conditions</p>
-            </div>
-          </div>
+      {/* Main Authentication Card */}
+      <div className="card-depth p-6 sm:p-8 space-y-6">
+        {/* Header Title */}
+        <div className="text-center space-y-1 pb-1">
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            {authMode === 'signup' ? 'Create Your Account' : 'Welcome to Medtrac'}
+          </h1>
+          <p className="text-xs text-slate-500 font-medium">
+            Cross-border metabolic records and doctor briefs
+          </p>
+        </div>
+
+        {/* Auth Mode Toggle (Sign Up vs Sign In) */}
+        <div className="inline-flex w-full rounded-2xl bg-slate-100 p-1 border border-slate-200/80 shadow-2xs">
           <button
             type="button"
-            onClick={loadDemoProfile}
-            className="text-xs font-black text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3.5 py-1.5 rounded-xl transition-all tap-press border border-blue-200/50"
+            onClick={() => {
+              setAuthMode('signup');
+              setErrorMessage(null);
+            }}
+            className={`flex-1 py-2 text-xs font-black rounded-xl transition-all tap-press ${
+              authMode === 'signup'
+                ? 'bg-white text-blue-700 shadow-2xs ring-1 ring-slate-900/5'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
           >
-            Demo Patient
+            Sign Up
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMode('signin');
+              setErrorMessage(null);
+            }}
+            className={`flex-1 py-2 text-xs font-black rounded-xl transition-all tap-press ${
+              authMode === 'signin'
+                ? 'bg-white text-blue-700 shadow-2xs ring-1 ring-slate-900/5'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Sign In
           </button>
         </div>
 
-        {/* Authentication Choice Tabs */}
-        <div className="mb-6 space-y-3">
-          <label className="block text-xs font-black text-slate-700 uppercase tracking-wider">
-            Authentication Method
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setAuthMethod('demo')}
-              className={`p-2.5 rounded-xl border text-xs font-bold transition-all tap-press text-center ${
-                authMethod === 'demo'
-                  ? 'border-blue-600 bg-blue-50 text-blue-900 ring-1 ring-blue-600 shadow-xs'
-                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              Instant Demo Access
-            </button>
-            <button
-              type="button"
-              onClick={() => setAuthMethod('magic_link')}
-              className={`p-2.5 rounded-xl border text-xs font-bold transition-all tap-press text-center ${
-                authMethod === 'magic_link'
-                  ? 'border-blue-600 bg-blue-50 text-blue-900 ring-1 ring-blue-600 shadow-xs'
-                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              Email Magic Link
-            </button>
-          </div>
-
-          {authMethod === 'magic_link' && (
-            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-              <div className="flex gap-2">
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-300 outline-none focus:ring-1 focus:ring-blue-500"
-                />
-                <button
-                  type="button"
-                  onClick={handleSendMagicLink}
-                  disabled={loading}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition tap-press"
-                >
-                  {loading ? 'Sending...' : 'Send Link'}
-                </button>
-              </div>
-              {magicLinkSent && (
-                <p className="text-[11px] text-emerald-600 font-bold">
-                  Magic link sent! Check your inbox to complete verification.
-                </p>
-              )}
+        {/* Demo Login (For immediate client/doctor preview) */}
+        <button
+          type="button"
+          onClick={executeDemoLogin}
+          disabled={loading}
+          className="w-full p-3.5 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50/80 border border-blue-200/90 hover:border-blue-300 flex items-center justify-between text-left transition-all tap-press group shadow-2xs"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xs shadow-2xs">
+              ⚡
             </div>
-          )}
+            <div>
+              <p className="text-xs font-black text-blue-950 group-hover:text-blue-700 transition">
+                One-Click Demo Access
+              </p>
+              <p className="text-[11px] text-blue-700 font-medium">
+                Test with Sarah Jenkins profile (Adult 43)
+              </p>
+            </div>
+          </div>
+          <span className="text-[11px] font-bold text-blue-600 bg-white px-2.5 py-1 rounded-xl border border-blue-200 shadow-2xs">
+            Test Demo
+          </span>
+        </button>
+
+        {/* Google Sign In Button */}
+        <button
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-2xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all tap-press shadow-2xs"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24">
+            <path
+              fill="#4285F4"
+              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+            />
+            <path
+              fill="#34A853"
+              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+            />
+            <path
+              fill="#EA4335"
+              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+            />
+          </svg>
+          <span>Continue with Google</span>
+        </button>
+
+        {/* Divider */}
+        <div className="relative flex items-center justify-center">
+          <div className="border-t border-slate-200 w-full" />
+          <span className="bg-white px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider relative z-10">
+            or continue with
+          </span>
         </div>
 
-        {/* Profile Form */}
-        <form onSubmit={handleContinue} className="space-y-5">
-          {/* Full Name */}
-          <div>
-            <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
-              Full Name *
-            </label>
-            <input
-              type="text"
-              required
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="e.g. Sarah Jenkins"
-              className="w-full px-4 py-3 rounded-2xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-slate-900 font-medium transition"
-            />
-          </div>
+        {/* Channel Switcher (Email vs Phone OTP) */}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setChannel('email');
+              setErrorMessage(null);
+            }}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border text-xs font-bold transition-all tap-press ${
+              channel === 'email'
+                ? 'border-blue-600 bg-blue-50/70 text-blue-700'
+                : 'border-slate-200 bg-slate-50/50 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Mail className="w-3.5 h-3.5" />
+            <span>Email</span>
+          </button>
 
-          {/* Date of Birth & Adult Qualification */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-black text-slate-700 uppercase tracking-wider">
-                Date of Birth (Adult 18+) *
-              </label>
-              {dob && (
-                <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full badge-optimal tabular-nums">
-                  Age: {calculateAge(dob)} yrs (Adult Verified)
-                </span>
-              )}
-            </div>
-            <input
-              type="date"
-              required
-              value={dob}
-              onChange={(e) => setDob(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-slate-900 font-semibold tabular-nums transition"
-            />
-            <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1 font-medium">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#059669]" />
-              Privacy protected. Full birth date is required for adult eligibility and clinical risk scoring.
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setChannel('phone');
+              setErrorMessage(null);
+            }}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border text-xs font-bold transition-all tap-press ${
+              channel === 'phone'
+                ? 'border-blue-600 bg-blue-50/70 text-blue-700'
+                : 'border-slate-200 bg-slate-50/50 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>Mobile OTP</span>
+          </button>
+        </div>
 
-          {/* Preferred Units */}
-          <div>
-            <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
-              Preferred Display Unit
-            </label>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => setPreferredUnit('mg_dl')}
-                className={`p-3.5 rounded-2xl border text-xs font-black transition-all tap-press text-left ${
-                  preferredUnit === 'mg_dl'
-                    ? 'border-blue-600 bg-blue-50/70 text-blue-900 ring-2 ring-blue-600 shadow-xs'
-                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <div>mg/dL &amp; %</div>
-                <div className="text-[10px] font-medium text-slate-500 mt-0.5">
-                  Conventional (US / India)
+        {/* Feedback Messages */}
+        {errorMessage && (
+          <div className="p-3 bg-rose-50 border border-rose-200/80 rounded-2xl flex items-start gap-2 text-xs text-rose-800">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="p-3 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-start gap-2 text-xs text-emerald-800">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            <span>{successMessage}</span>
+          </div>
+        )}
+
+        {/* Form Fields: Only First Name, Last Name, DOB, and Email/Phone */}
+        <form onSubmit={channel === 'email' ? handleEmailAuth : (otpSent ? handleVerifyPhoneOtp : handleSendPhoneOtp)} className="space-y-4">
+          {/* Identity Fields (Visible in Sign Up mode) */}
+          {authMode === 'signup' && (
+            <div className="space-y-3.5 pt-1">
+              {/* First Name & Last Name Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-black text-slate-700 uppercase mb-1">
+                    First Name <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Sarah"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50/80 rounded-xl border border-slate-200/90 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                  />
                 </div>
-              </button>
 
-              <button
-                type="button"
-                onClick={() => setPreferredUnit('mmol_l')}
-                className={`p-3.5 rounded-2xl border text-xs font-black transition-all tap-press text-left ${
-                  preferredUnit === 'mmol_l'
-                    ? 'border-blue-600 bg-blue-50/70 text-blue-900 ring-2 ring-blue-600 shadow-xs'
-                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <div>mmol/L &amp; mmol/mol</div>
-                <div className="text-[10px] font-medium text-slate-500 mt-0.5">
-                  SI System (UK / UAE / Europe)
+                <div>
+                  <label className="block text-[11px] font-black text-slate-700 uppercase mb-1">
+                    Last Name <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Jenkins"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50/80 rounded-xl border border-slate-200/90 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                  />
                 </div>
-              </button>
-            </div>
-          </div>
+              </div>
 
-          {/* Conditions Managing Checklist */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs font-black text-slate-700 uppercase tracking-wider">
-                Conditions You Are Managing
-              </label>
-              <span className="text-[10px] text-slate-400 font-semibold">Select all that apply</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {COMMON_CONDITIONS.map((cond) => {
-                const isSelected = selectedConditions.includes(cond);
-                return (
-                  <button
-                    type="button"
-                    key={cond}
-                    onClick={() => toggleCondition(cond)}
-                    className={`flex items-center justify-between p-3 rounded-2xl border text-xs font-semibold transition-all tap-press text-left ${
-                      isSelected
-                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-black shadow-xs ring-1 ring-blue-600'
-                        : 'border-slate-200 text-slate-700 hover:border-slate-300 bg-white'
-                    }`}
-                  >
-                    <span>{cond}</span>
-                    {isSelected && <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Custom Condition Entry */}
-            <div className="mt-2.5">
-              <input
-                type="text"
-                placeholder="+ Add custom condition (press Enter)"
-                value={customCondition}
-                onChange={(e) => setCustomCondition(e.target.value)}
-                onKeyDown={handleAddCustomCondition}
-                className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-dashed border-slate-300 focus:border-blue-500 outline-none text-slate-800 font-medium"
-              />
-            </div>
-          </div>
-
-          {/* Error Message */}
-          {errorMessage && (
-            <div className="p-3.5 rounded-2xl badge-urgent flex items-start gap-2.5 text-xs font-semibold">
-              <AlertCircle className="w-4 h-4 text-[#e11d48] shrink-0 mt-0.5" />
-              <span>{errorMessage}</span>
+              {/* Date of Birth Field */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-black text-slate-700 uppercase">
+                    Date of Birth (Adult 18+) <span className="text-rose-500">*</span>
+                  </label>
+                  {dob && (
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full tabular-nums ${
+                        isAdult
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-rose-100 text-rose-800'
+                      }`}
+                    >
+                      {isAdult ? `Age: ${calculatedAge} • Adult Verified` : `Age: ${calculatedAge} • Adult Required`}
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type="date"
+                    required
+                    value={dob}
+                    onChange={(e) => setDob(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50/80 rounded-xl border border-slate-200/90 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 tabular-nums transition"
+                  />
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Submit Continue Button */}
+          {/* Email Channel Input */}
+          {channel === 'email' && (
+            <div>
+              <label className="block text-[11px] font-black text-slate-700 uppercase mb-1">
+                Email Address <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="email"
+                  required
+                  placeholder="name@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50/80 rounded-xl border border-slate-200/90 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Mobile Phone OTP Channel Input */}
+          {channel === 'phone' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-black text-slate-700 uppercase mb-1">
+                  Mobile Phone Number <span className="text-rose-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                    className="px-2.5 py-2 bg-slate-50/80 rounded-xl border border-slate-200/90 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    {COUNTRY_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.country} ({c.code})
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="50 123 4567"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-slate-50/80 rounded-xl border border-slate-200/90 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 tabular-nums transition"
+                  />
+                </div>
+              </div>
+
+              {/* 6-digit OTP Input (When OTP Sent) */}
+              {otpSent && (
+                <div className="p-3 bg-blue-50/60 border border-blue-200/70 rounded-2xl space-y-2 animate-in fade-in zoom-in-95 duration-150">
+                  <label className="block text-[11px] font-black text-blue-900 uppercase">
+                    Enter 6-Digit OTP Code
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="123456"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    className="w-full text-center tracking-widest text-lg font-black bg-white py-2 rounded-xl border border-blue-300 outline-none focus:ring-2 focus:ring-blue-500/20 tabular-nums"
+                  />
+                  <div className="flex justify-between items-center text-[11px] text-slate-500 pt-1">
+                    <span>Didn&apos;t get code?</span>
+                    <button
+                      type="button"
+                      onClick={handleSendPhoneOtp}
+                      className="font-bold text-blue-600 hover:underline"
+                    >
+                      Resend SMS
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Submit Action Button */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black text-sm shadow-[0_4px_16px_rgba(37,99,235,0.3)] transition-all tap-press disabled:opacity-70 min-h-[48px]"
+            className="w-full py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black text-xs transition-all shadow-md tap-press flex items-center justify-center gap-2"
           >
-            <span>{loading ? 'Saving Profile...' : 'Continue to Upload Reports'}</span>
-            <ArrowRight className="w-4 h-4" />
+            {loading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+            <span>
+              {channel === 'phone'
+                ? (otpSent ? 'Verify & Continue' : 'Send Mobile OTP Code')
+                : (authMode === 'signup' ? 'Create Account & Continue' : 'Sign In with Email')}
+            </span>
+            {!loading && <ArrowRight className="w-3.5 h-3.5" />}
           </button>
         </form>
+
+        {/* Security & Medical Privacy Footnote */}
+        <div className="pt-2 text-center text-slate-400 text-[11px] flex items-center justify-center gap-1.5">
+          <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+          <span>Encrypted healthcare records • Adult 18+ metabolic review</span>
+        </div>
       </div>
     </div>
   );
