@@ -35,6 +35,23 @@ export default function SplashScreen() {
   return (
     <div
       id="medtrac-splash-screen"
+      style={{
+        backgroundColor: '#2563eb',
+        color: '#ffffff',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 99999,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: isFadingOut ? 0 : 1,
+        transition: 'opacity 500ms ease-in-out',
+        pointerEvents: isFadingOut ? 'none' : 'auto',
+      }}
       className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#2563eb] text-white transition-opacity duration-500 ease-in-out select-none ${
         isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
@@ -56,6 +73,12 @@ export default function SplashScreen() {
 
         {/* Tagline animating in after 1 second in italics */}
         <div
+          style={{
+            marginTop: '1rem',
+            opacity: showTagline ? 1 : 0,
+            transform: showTagline ? 'translateY(0)' : 'translateY(10px)',
+            transition: 'all 500ms ease-out',
+          }}
           className={`mt-4 sm:mt-5 transition-all duration-500 ease-out transform ${
             showTagline
               ? 'opacity-100 translate-y-0 scale-100'
