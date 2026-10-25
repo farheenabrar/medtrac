@@ -215,23 +215,23 @@ export default function SetupPage() {
     <div className="max-w-xl mx-auto py-3 sm:py-6 space-y-6">
       {/* Return User Banner */}
       {existingUser && (
-        <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+        <div className="p-4 rounded-3xl bg-blue-50/80 border border-blue-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[0_2px_12px_rgba(37,99,235,0.06)] tap-press">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold">
+            <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-sm">
               <UserCheck className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-blue-900">
+              <p className="text-xs font-black text-blue-950">
                 Welcome back, {existingUser.full_name}!
               </p>
-              <p className="text-[11px] text-blue-700">
+              <p className="text-[11px] text-blue-700 font-medium">
                 You have active metabolic records stored in Medtrac.
               </p>
             </div>
           </div>
           <button
             onClick={() => router.push('/dashboard')}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs"
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black transition-all shadow-[0_4px_12px_rgba(37,99,235,0.25)] tap-press"
           >
             <span>Go to Dashboard</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -239,23 +239,23 @@ export default function SetupPage() {
         </div>
       )}
 
-      {/* Main Setup Card */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5 sm:p-8">
+      {/* Main Setup Card with card-depth and soft shadows */}
+      <div className="card-depth p-5 sm:p-8">
         {/* Header */}
         <div className="flex items-center justify-between pb-5 border-b border-slate-100 mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-sm">
+            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-sm shadow-[0_2px_8px_rgba(37,99,235,0.12)]">
               1
             </div>
             <div>
-              <h1 className="text-lg font-extrabold text-slate-900">Sign Up & Setup</h1>
-              <p className="text-xs text-slate-500">Step 1 of 5 • Profile & Conditions</p>
+              <h1 className="text-lg font-black text-slate-900 tracking-tight">Sign Up &amp; Setup</h1>
+              <p className="text-xs text-slate-500 font-medium">Step 1 of 5 • Profile &amp; Conditions</p>
             </div>
           </div>
           <button
             type="button"
             onClick={loadDemoProfile}
-            className="text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition"
+            className="text-xs font-black text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3.5 py-1.5 rounded-xl transition-all tap-press border border-blue-200/50"
           >
             Demo Patient
           </button>
@@ -263,16 +263,16 @@ export default function SetupPage() {
 
         {/* Authentication Choice Tabs */}
         <div className="mb-6 space-y-3">
-          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+          <label className="block text-xs font-black text-slate-700 uppercase tracking-wider">
             Authentication Method
           </label>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => setAuthMethod('demo')}
-              className={`p-2.5 rounded-xl border text-xs font-semibold transition text-center ${
+              className={`p-2.5 rounded-xl border text-xs font-bold transition-all tap-press text-center ${
                 authMethod === 'demo'
-                  ? 'border-blue-600 bg-blue-50 text-blue-900 ring-1 ring-blue-600'
+                  ? 'border-blue-600 bg-blue-50 text-blue-900 ring-1 ring-blue-600 shadow-xs'
                   : 'border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -281,9 +281,9 @@ export default function SetupPage() {
             <button
               type="button"
               onClick={() => setAuthMethod('magic_link')}
-              className={`p-2.5 rounded-xl border text-xs font-semibold transition text-center ${
+              className={`p-2.5 rounded-xl border text-xs font-bold transition-all tap-press text-center ${
                 authMethod === 'magic_link'
-                  ? 'border-blue-600 bg-blue-50 text-blue-900 ring-1 ring-blue-600'
+                  ? 'border-blue-600 bg-blue-50 text-blue-900 ring-1 ring-blue-600 shadow-xs'
                   : 'border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -305,13 +305,13 @@ export default function SetupPage() {
                   type="button"
                   onClick={handleSendMagicLink}
                   disabled={loading}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition"
+                  className="px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition tap-press"
                 >
                   {loading ? 'Sending...' : 'Send Link'}
                 </button>
               </div>
               {magicLinkSent && (
-                <p className="text-[11px] text-emerald-600 font-medium">
+                <p className="text-[11px] text-emerald-600 font-bold">
                   Magic link sent! Check your inbox to complete verification.
                 </p>
               )}
@@ -323,7 +323,7 @@ export default function SetupPage() {
         <form onSubmit={handleContinue} className="space-y-5">
           {/* Full Name */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
               Full Name *
             </label>
             <input
@@ -332,19 +332,19 @@ export default function SetupPage() {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="e.g. Sarah Jenkins"
-              className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-slate-900 transition"
+              className="w-full px-4 py-3 rounded-2xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-slate-900 font-medium transition"
             />
           </div>
 
           {/* Date of Birth & Adult Qualification */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+              <label className="block text-xs font-black text-slate-700 uppercase tracking-wider">
                 Date of Birth (Adult 18+) *
               </label>
               {dob && (
-                <span className="text-[11px] font-semibold text-slate-500">
-                  Age: {calculateAge(dob)} years
+                <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full badge-optimal tabular-nums">
+                  Age: {calculateAge(dob)} yrs (Adult Verified)
                 </span>
               )}
             </div>
@@ -353,31 +353,31 @@ export default function SetupPage() {
               required
               value={dob}
               onChange={(e) => setDob(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-slate-900 transition"
+              className="w-full px-4 py-3 rounded-2xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-slate-900 font-semibold tabular-nums transition"
             />
-            <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1 font-medium">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#059669]" />
               Privacy protected. Full birth date is required for adult eligibility and clinical risk scoring.
             </p>
           </div>
 
           {/* Preferred Units */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
               Preferred Display Unit
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => setPreferredUnit('mg_dl')}
-                className={`p-3 rounded-xl border text-xs font-bold transition text-left ${
+                className={`p-3.5 rounded-2xl border text-xs font-black transition-all tap-press text-left ${
                   preferredUnit === 'mg_dl'
-                    ? 'border-blue-600 bg-blue-50/70 text-blue-900 ring-1 ring-blue-600'
+                    ? 'border-blue-600 bg-blue-50/70 text-blue-900 ring-2 ring-blue-600 shadow-xs'
                     : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 <div>mg/dL &amp; %</div>
-                <div className="text-[10px] font-normal text-slate-500 mt-0.5">
+                <div className="text-[10px] font-medium text-slate-500 mt-0.5">
                   Conventional (US / India)
                 </div>
               </button>
@@ -385,14 +385,14 @@ export default function SetupPage() {
               <button
                 type="button"
                 onClick={() => setPreferredUnit('mmol_l')}
-                className={`p-3 rounded-xl border text-xs font-bold transition text-left ${
+                className={`p-3.5 rounded-2xl border text-xs font-black transition-all tap-press text-left ${
                   preferredUnit === 'mmol_l'
-                    ? 'border-blue-600 bg-blue-50/70 text-blue-900 ring-1 ring-blue-600'
+                    ? 'border-blue-600 bg-blue-50/70 text-blue-900 ring-2 ring-blue-600 shadow-xs'
                     : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 <div>mmol/L &amp; mmol/mol</div>
-                <div className="text-[10px] font-normal text-slate-500 mt-0.5">
+                <div className="text-[10px] font-medium text-slate-500 mt-0.5">
                   SI System (UK / UAE / Europe)
                 </div>
               </button>
@@ -402,10 +402,10 @@ export default function SetupPage() {
           {/* Conditions Managing Checklist */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+              <label className="block text-xs font-black text-slate-700 uppercase tracking-wider">
                 Conditions You Are Managing
               </label>
-              <span className="text-[10px] text-slate-400">Select all that apply</span>
+              <span className="text-[10px] text-slate-400 font-semibold">Select all that apply</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -416,9 +416,9 @@ export default function SetupPage() {
                     type="button"
                     key={cond}
                     onClick={() => toggleCondition(cond)}
-                    className={`flex items-center justify-between p-3 rounded-xl border text-xs font-medium transition text-left ${
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-xs font-semibold transition-all tap-press text-left ${
                       isSelected
-                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-bold'
+                        ? 'border-blue-600 bg-blue-50/70 text-blue-900 font-black shadow-xs ring-1 ring-blue-600'
                         : 'border-slate-200 text-slate-700 hover:border-slate-300 bg-white'
                     }`}
                   >
@@ -437,15 +437,15 @@ export default function SetupPage() {
                 value={customCondition}
                 onChange={(e) => setCustomCondition(e.target.value)}
                 onKeyDown={handleAddCustomCondition}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-dashed border-slate-300 focus:border-blue-500 outline-none text-slate-800"
+                className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-dashed border-slate-300 focus:border-blue-500 outline-none text-slate-800 font-medium"
               />
             </div>
           </div>
 
           {/* Error Message */}
           {errorMessage && (
-            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-start gap-2.5 text-xs text-red-700">
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+            <div className="p-3.5 rounded-2xl badge-urgent flex items-start gap-2.5 text-xs font-semibold">
+              <AlertCircle className="w-4 h-4 text-[#e11d48] shrink-0 mt-0.5" />
               <span>{errorMessage}</span>
             </div>
           )}
@@ -454,7 +454,7 @@ export default function SetupPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-md transition disabled:opacity-70 min-h-[48px]"
+            className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black text-sm shadow-[0_4px_16px_rgba(37,99,235,0.3)] transition-all tap-press disabled:opacity-70 min-h-[48px]"
           >
             <span>{loading ? 'Saving Profile...' : 'Continue to Upload Reports'}</span>
             <ArrowRight className="w-4 h-4" />

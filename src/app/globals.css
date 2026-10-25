@@ -4,20 +4,81 @@
 
 :root {
   --background: #f8fafc;
-  --foreground: #0f172a;
+  --foreground: #090d16;
 }
 
 body {
   color: var(--foreground);
-  background: var(--background);
+  background-color: var(--background);
+  background-image: 
+    radial-gradient(at 50% 0%, rgba(37, 99, 235, 0.04) 0px, transparent 65%),
+    radial-gradient(at 100% 100%, rgba(124, 58, 237, 0.03) 0px, transparent 60%);
+  background-attachment: fixed;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+/* Tabular Numbers for precise clinical alignment */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* Subtle 1px border cards with soft shadows */
+.card-depth {
+  background-color: #ffffff;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-depth:hover {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  border-color: rgba(203, 213, 225, 0.9);
+}
+
+/* Smooth Tap Press micro-interactions */
+.tap-press {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.tap-press:active {
+  transform: scale(0.98);
+}
+
+/* Status Badges */
+.badge-optimal {
+  color: #059669;
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+
+.badge-attention {
+  color: #d97706;
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.badge-urgent {
+  color: #e11d48;
+  background-color: #fff1f2;
+  border: 1px solid #fecdd3;
+}
+
+.badge-milestone {
+  color: #7c3aed;
+  background-color: #f5f3ff;
+  border: 1px solid #ddd6fe;
 }
 
 /* Custom print styles for Doctor Brief */
 @media print {
   body {
     background: white !important;
+    background-image: none !important;
     color: black !important;
   }
   .no-print {

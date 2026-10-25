@@ -345,9 +345,9 @@ export default function UploadPage() {
         <button
           type="button"
           onClick={loadSampleCrossBorderReports}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 font-bold text-xs transition shadow-xs"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[#f5f3ff] text-[#7c3aed] border border-[#ddd6fe] hover:bg-[#ede9fe] font-black text-xs transition-all shadow-xs tap-press"
         >
-          <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
+          <Sparkles className="w-4 h-4 text-[#7c3aed] shrink-0" />
           <span>Load Mumbai &amp; Dubai Reports (Aha Moment)</span>
         </button>
       </div>
@@ -357,10 +357,10 @@ export default function UploadPage() {
         {/* Main Dropzone */}
         <div
           onClick={() => fileInputRef.current?.click()}
-          className={`md:col-span-3 border-2 border-dashed rounded-3xl p-6 sm:p-8 text-center cursor-pointer transition ${
+          className={`md:col-span-3 border-2 border-dashed rounded-3xl p-6 sm:p-8 text-center cursor-pointer transition-all duration-200 tap-press ${
             extracting
               ? 'border-blue-400 bg-blue-50/50'
-              : 'border-slate-300 hover:border-blue-500 hover:bg-blue-50/20 bg-white shadow-xs'
+              : 'border-slate-300 hover:border-blue-500 hover:bg-blue-50/20 bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)]'
           }`}
         >
           <input
@@ -371,28 +371,28 @@ export default function UploadPage() {
             className="hidden"
             onChange={(e) => handleFileUpload(e.target.files)}
           />
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3">
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3 shadow-[0_4px_12px_rgba(37,99,235,0.15)]">
             {extracting ? (
               <RefreshCw className="w-6 h-6 animate-spin" />
             ) : (
               <UploadCloud className="w-6 h-6" />
             )}
           </div>
-          <h3 className="font-bold text-slate-800 text-sm sm:text-base">
+          <h3 className="font-black text-slate-800 text-sm sm:text-base">
             {extracting ? 'Analyzing Documents with Gemini Flash...' : 'Tap or drop lab report PDFs / photos here'}
           </h3>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Supports multi-page PDFs, scans, and photos up to 10MB each
+          <p className="text-[11px] text-slate-400 mt-1 font-medium">
+            Supports multi-page PDFs, scans, and mobile photos up to 10MB each
           </p>
           {statusMessage && (
-            <p className="mt-3 text-xs font-semibold text-blue-600 animate-pulse">{statusMessage}</p>
+            <p className="mt-3 text-xs font-bold text-blue-600 animate-pulse">{statusMessage}</p>
           )}
         </div>
 
         {/* Mobile Camera Upload Button */}
         <div
           onClick={() => cameraInputRef.current?.click()}
-          className="border-2 border-dashed border-purple-200 bg-purple-50/40 hover:bg-purple-50/80 rounded-3xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition shadow-xs"
+          className="border-2 border-dashed border-[#ddd6fe] bg-[#f5f3ff]/50 hover:bg-[#f5f3ff] rounded-3xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 shadow-[0_2px_12px_rgba(0,0,0,0.04)] tap-press"
         >
           <input
             ref={cameraInputRef}
@@ -402,29 +402,29 @@ export default function UploadPage() {
             className="hidden"
             onChange={(e) => handleFileUpload(e.target.files)}
           />
-          <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center mb-2">
+          <div className="w-12 h-12 rounded-2xl bg-[#ede9fe] text-[#7c3aed] flex items-center justify-center mb-2 shadow-[0_4px_12px_rgba(124,58,237,0.15)]">
             <Camera className="w-6 h-6" />
           </div>
-          <h4 className="font-bold text-slate-800 text-xs">Take Photo</h4>
-          <p className="text-[10px] text-slate-500 mt-0.5">Use phone camera directly</p>
+          <h4 className="font-black text-slate-900 text-xs">Take Photo</h4>
+          <p className="text-[10px] text-slate-500 mt-0.5 font-medium">Use phone camera directly</p>
         </div>
       </div>
 
       {/* Verification Container */}
       {rows.length > 0 && (
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="card-depth overflow-hidden">
           {/* Table Header Bar */}
-          <div className="p-4 sm:p-5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+          <div className="p-4 sm:p-5 bg-slate-50/80 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-extrabold text-slate-900 text-sm sm:text-base">
+                <h2 className="font-black text-slate-900 text-sm sm:text-base">
                   Extracted Lab Results ({rows.length})
                 </h2>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full badge-optimal uppercase tracking-wide">
                   Ready for Review
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5 font-medium">
                 Amber fields indicate low confidence ($&lt;85\%$). Please inspect original report before confirming.
               </p>
             </div>
@@ -433,7 +433,7 @@ export default function UploadPage() {
               <button
                 type="button"
                 onClick={() => setRows([])}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 transition tap-press"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Discard All</span>
@@ -463,8 +463,8 @@ export default function UploadPage() {
                   return (
                     <tr
                       key={row.id}
-                      className={`hover:bg-slate-50/80 transition ${
-                        isLowConfidence ? 'bg-amber-50/50' : ''
+                      className={`hover:bg-slate-50/80 transition-all ${
+                        isLowConfidence ? 'bg-[#fffbeb]/60' : ''
                       }`}
                     >
                       {/* Raw Test Name */}
@@ -473,7 +473,7 @@ export default function UploadPage() {
                           type="text"
                           value={row.raw_test_name}
                           onChange={(e) => updateRow(row.id, 'raw_test_name', e.target.value)}
-                          className="font-bold text-slate-900 bg-transparent border-b border-transparent focus:border-blue-500 outline-none w-full"
+                          className="font-black text-slate-900 bg-transparent border-b border-transparent focus:border-blue-500 outline-none w-full"
                         />
                       </td>
 
@@ -495,7 +495,7 @@ export default function UploadPage() {
                         </select>
                       </td>
 
-                      {/* Value (with amber highlight on low confidence) */}
+                      {/* Value (with Warm Amber highlight on low confidence) */}
                       <td className="py-3 px-4">
                         <input
                           type="number"
@@ -504,14 +504,14 @@ export default function UploadPage() {
                           onChange={(e) =>
                             updateRow(row.id, 'raw_value', parseFloat(e.target.value) || 0)
                           }
-                          className={`w-20 px-2.5 py-1.5 rounded-xl border text-xs font-black outline-none ${
+                          className={`w-20 px-2.5 py-1.5 rounded-xl border text-xs font-black tabular-nums outline-none ${
                             isLowConfidence
-                              ? 'border-amber-400 bg-amber-100 text-amber-950'
+                              ? 'border-[#fde68a] bg-[#fffbeb] text-[#92400e]'
                               : 'border-slate-200 bg-white text-slate-900'
                           }`}
                         />
                         {isLowConfidence && (
-                          <span className="block text-[10px] text-amber-700 font-bold mt-0.5">
+                          <span className="block text-[10px] text-[#b45309] font-black mt-0.5 tabular-nums">
                             Check: {Math.round(row.confidence_score * 100)}%
                           </span>
                         )}
@@ -523,7 +523,7 @@ export default function UploadPage() {
                           type="text"
                           value={row.raw_unit}
                           onChange={(e) => updateRow(row.id, 'raw_unit', e.target.value)}
-                          className="w-20 px-2 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold outline-none"
+                          className="w-20 px-2 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 outline-none"
                         />
                       </td>
 
@@ -533,7 +533,7 @@ export default function UploadPage() {
                           type="text"
                           value={row.raw_range}
                           onChange={(e) => updateRow(row.id, 'raw_range', e.target.value)}
-                          className="w-28 px-2 py-1.5 rounded-xl border border-slate-200 bg-white text-xs outline-none text-slate-600"
+                          className="w-28 px-2 py-1.5 rounded-xl border border-slate-200 bg-white text-xs outline-none text-slate-500 font-medium tabular-nums"
                         />
                       </td>
 
@@ -543,14 +543,14 @@ export default function UploadPage() {
                           type="date"
                           value={row.test_date}
                           onChange={(e) => updateRow(row.id, 'test_date', e.target.value)}
-                          className="px-2 py-1.5 rounded-xl border border-slate-200 bg-white text-xs outline-none text-slate-800"
+                          className="px-2 py-1.5 rounded-xl border border-slate-200 bg-white text-xs outline-none text-slate-800 tabular-nums font-semibold"
                         />
                       </td>
 
                       {/* Lab & Country */}
                       <td className="py-3 px-4 text-slate-600">
-                        <div className="font-semibold text-slate-900">{row.lab_name}</div>
-                        <div className="text-[10px] text-slate-400">{row.lab_country}</div>
+                        <div className="font-bold text-slate-900">{row.lab_name}</div>
+                        <div className="text-[10px] text-slate-400 font-medium">{row.lab_country}</div>
                       </td>
 
                       {/* Inspect Source Button */}
@@ -558,7 +558,7 @@ export default function UploadPage() {
                         <button
                           type="button"
                           onClick={() => setInspectModalRow(row)}
-                          className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
+                          className="p-1.5 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition tap-press"
                           title="Inspect original document side-by-side"
                         >
                           <Eye className="w-4 h-4" />
@@ -570,7 +570,7 @@ export default function UploadPage() {
                         <button
                           type="button"
                           onClick={() => deleteRow(row.id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
+                          className="p-1.5 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition tap-press"
                           title="Remove item"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -583,37 +583,37 @@ export default function UploadPage() {
             </table>
           </div>
 
-          {/* Mobile Card View (optimized for smartphone screens) */}
+          {/* Mobile Card View (optimized for smartphone screens with Clinical Palette) */}
           <div className="lg:hidden divide-y divide-slate-100 p-3 space-y-3">
             {rows.map((row) => {
               const isLowConfidence = row.confidence_score < 0.85;
               return (
                 <div
                   key={row.id}
-                  className={`p-4 rounded-2xl border transition ${
+                  className={`p-4 rounded-3xl border transition-all duration-200 tap-press ${
                     isLowConfidence
-                      ? 'bg-amber-50/60 border-amber-300'
-                      : 'bg-white border-slate-200 shadow-xs'
+                      ? 'bg-[#fffbeb]/70 border-[#fde68a] shadow-[0_2px_12px_rgba(217,119,6,0.06)]'
+                      : 'bg-white border-slate-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.04)]'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-start justify-between gap-2 mb-2.5">
                     <div>
                       <input
                         type="text"
                         value={row.raw_test_name}
                         onChange={(e) => updateRow(row.id, 'raw_test_name', e.target.value)}
-                        className="font-extrabold text-sm text-slate-900 bg-transparent outline-none w-full"
+                        className="font-black text-sm text-slate-900 bg-transparent outline-none w-full"
                       />
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
                         {row.lab_name} • {row.lab_country}
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={() => setInspectModalRow(row)}
-                        className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100"
+                        className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 tap-press"
                         title="Inspect source document"
                       >
                         <Eye className="w-4 h-4" />
@@ -621,7 +621,7 @@ export default function UploadPage() {
                       <button
                         type="button"
                         onClick={() => deleteRow(row.id)}
-                        className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50"
+                        className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 tap-press"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -630,7 +630,7 @@ export default function UploadPage() {
 
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
                         Canonical
                       </label>
                       <select
@@ -638,7 +638,7 @@ export default function UploadPage() {
                         onChange={(e) =>
                           updateRow(row.id, 'canonical_key', e.target.value as CanonicalKey)
                         }
-                        className="w-full mt-0.5 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-bold"
+                        className="w-full mt-1 px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 outline-none"
                       >
                         <option value="hba1c">HbA1c</option>
                         <option value="fasting_glucose">Fasting Glucose</option>
@@ -650,10 +650,10 @@ export default function UploadPage() {
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
                         Value &amp; Unit
                       </label>
-                      <div className="flex gap-1 mt-0.5">
+                      <div className="flex gap-1.5 mt-1">
                         <input
                           type="number"
                           step="any"
@@ -661,51 +661,51 @@ export default function UploadPage() {
                           onChange={(e) =>
                             updateRow(row.id, 'raw_value', parseFloat(e.target.value) || 0)
                           }
-                          className={`w-16 px-2 py-1.5 rounded-lg border text-xs font-black ${
+                          className={`w-20 px-2.5 py-1.5 rounded-xl border text-xs font-black tabular-nums outline-none ${
                             isLowConfidence
-                              ? 'border-amber-400 bg-amber-100 text-amber-950'
-                              : 'border-slate-200 bg-white'
+                              ? 'border-[#fde68a] bg-[#fffbeb] text-[#92400e]'
+                              : 'border-slate-200 bg-white text-slate-900'
                           }`}
                         />
                         <input
                           type="text"
                           value={row.raw_unit}
                           onChange={(e) => updateRow(row.id, 'raw_unit', e.target.value)}
-                          className="w-16 px-2 py-1.5 rounded-lg border border-slate-200 text-xs"
+                          className="w-16 px-2 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 outline-none"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs mt-2 pt-2 border-t border-slate-100">
+                  <div className="grid grid-cols-2 gap-2 text-xs mt-2.5 pt-2 border-t border-slate-100">
                     <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                         Lab Reference Range
                       </label>
                       <input
                         type="text"
                         value={row.raw_range}
                         onChange={(e) => updateRow(row.id, 'raw_range', e.target.value)}
-                        className="w-full mt-0.5 px-2 py-1 rounded-lg border border-slate-200 text-[11px]"
+                        className="w-full mt-1 px-2.5 py-1 rounded-xl border border-slate-200 text-[11px] text-slate-500 font-semibold tabular-nums outline-none"
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                         Test Date
                       </label>
                       <input
                         type="date"
                         value={row.test_date}
                         onChange={(e) => updateRow(row.id, 'test_date', e.target.value)}
-                        className="w-full mt-0.5 px-2 py-1 rounded-lg border border-slate-200 text-[11px]"
+                        className="w-full mt-1 px-2.5 py-1 rounded-xl border border-slate-200 text-[11px] text-slate-800 font-bold tabular-nums outline-none"
                       />
                     </div>
                   </div>
 
                   {isLowConfidence && (
-                    <div className="mt-2 text-[11px] text-amber-800 font-bold bg-amber-100/70 px-2 py-1 rounded-lg flex items-center gap-1">
-                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                      <span>Low OCR confidence: please inspect source report</span>
+                    <div className="mt-2.5 text-[11px] font-bold badge-attention px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-[#d97706]" />
+                      <span>Low OCR confidence: please inspect against source report</span>
                     </div>
                   )}
                 </div>

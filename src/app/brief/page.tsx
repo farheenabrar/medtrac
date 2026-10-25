@@ -219,10 +219,10 @@ export default function DoctorBriefPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
         <div>
           <div className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center font-black text-sm">
+            <span className="w-8 h-8 rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-600/20 flex items-center justify-center font-black text-sm shadow-2xs">
               4
             </span>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900">Doctor Brief</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Doctor Brief</h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
             Doctor-ready consultation brief tailored to your physician’s exact specialty.
@@ -230,14 +230,14 @@ export default function DoctorBriefPage() {
         </div>
 
         {/* Doctor Specialty Tabs */}
-        <div className="inline-flex rounded-2xl bg-slate-200/90 p-1 border border-slate-300 shadow-xs">
+        <div className="inline-flex rounded-2xl bg-slate-100/90 p-1 border border-slate-200 shadow-2xs">
           {(['GP', 'Endocrinologist', 'Nutritionist'] as const).map((type) => (
             <button
               key={type}
               onClick={() => setDoctorType(type)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition ${
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all tap-press ${
                 doctorType === type
-                  ? 'bg-white text-blue-700 shadow-xs'
+                  ? 'bg-white text-blue-700 shadow-2xs ring-1 ring-slate-900/5'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -248,17 +248,17 @@ export default function DoctorBriefPage() {
       </div>
 
       {/* Action Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white rounded-3xl border border-slate-200 shadow-xs no-print">
+      <div className="card-depth flex flex-wrap items-center justify-between gap-3 p-4 no-print">
         <div className="flex flex-wrap items-center gap-2">
           {/* Last visit date selector */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs">
-            <Calendar className="w-3.5 h-3.5 text-slate-500" />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200/80 bg-slate-50 text-xs">
+            <Calendar className="w-3.5 h-3.5 text-slate-400" />
             <span className="text-[11px] font-semibold text-slate-500">Since Visit:</span>
             <input
               type="date"
               value={lastVisitDate}
               onChange={(e) => setLastVisitDate(e.target.value)}
-              className="bg-transparent text-slate-800 font-bold outline-none text-xs"
+              className="bg-transparent text-slate-800 font-bold outline-none text-xs tabular-nums"
             />
           </div>
 
@@ -271,9 +271,9 @@ export default function DoctorBriefPage() {
               }
             }}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200/80 hover:bg-slate-50 text-slate-700 font-bold text-xs transition tap-press shadow-2xs"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-blue-600' : 'text-slate-500'}`} />
             <span>Regenerate</span>
           </button>
 
@@ -285,21 +285,21 @@ export default function DoctorBriefPage() {
                 setIsEditing(true);
               }
             }}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition ${
+            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition tap-press shadow-2xs ${
               isEditing
                 ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
+                : 'border border-slate-200/80 text-slate-700 hover:bg-slate-50'
             }`}
           >
-            {isEditing ? <Save className="w-3.5 h-3.5" /> : <Edit3 className="w-3.5 h-3.5" />}
+            {isEditing ? <Save className="w-3.5 h-3.5" /> : <Edit3 className="w-3.5 h-3.5 text-slate-500" />}
             <span>{isEditing ? 'Save Changes' : 'Edit Brief'}</span>
           </button>
 
           <button
             onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200/80 hover:bg-slate-50 text-slate-700 font-bold text-xs transition tap-press shadow-2xs"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3.5 h-3.5 text-slate-500" />
             <span>Download PDF</span>
           </button>
         </div>
@@ -307,7 +307,7 @@ export default function DoctorBriefPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={handleShare}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs shadow-sm transition"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs shadow-sm transition tap-press"
           >
             <Share2 className="w-3.5 h-3.5" />
             <span>Share 24h Link &amp; QR Code</span>
@@ -343,40 +343,40 @@ export default function DoctorBriefPage() {
 
       {/* One-Page Doctor Brief Document */}
       {brief && (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+        <div className="card-depth p-6 sm:p-8 space-y-6">
           {/* Header */}
-          <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="border-b border-slate-200/80 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-1 rounded-lg bg-blue-100 text-blue-800 text-[11px] font-black uppercase tracking-wider">
+                <span className="px-2.5 py-1 rounded-xl bg-blue-50 text-blue-700 ring-1 ring-blue-600/20 text-[11px] font-black uppercase tracking-wider">
                   {brief.doctor_type} Consultation Brief
                 </span>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-slate-400 font-semibold tabular-nums">
                   Generated {new Date().toLocaleDateString()}
                 </span>
               </div>
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-1.5">
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-2 tracking-tight">
                 Patient: {brief.patient_summary.name}
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 Conditions: {brief.patient_summary.conditions.join(', ')}
               </p>
             </div>
-            <div className="text-right text-xs text-slate-400">
+            <div className="sm:text-right text-xs text-slate-400">
               <span className="font-extrabold text-slate-700">Medtrac Unified Records</span>
-              <p>Chronological review since {lastVisitDate}</p>
+              <p className="tabular-nums">Chronological review since {lastVisitDate}</p>
             </div>
           </div>
 
           {/* Key Changes Section */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-2.5">
               <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-blue-600" />
                 Key Changes Since Last Visit ({lastVisitDate})
               </h3>
               {isEditing && (
-                <span className="text-[10px] text-blue-600 font-bold">Editable</span>
+                <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full ring-1 ring-blue-600/20">Editable</span>
               )}
             </div>
 
@@ -384,9 +384,9 @@ export default function DoctorBriefPage() {
               {brief.key_changes.map((item, idx) => (
                 <div
                   key={idx}
-                  className="flex items-start gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-100 text-xs text-slate-800 font-medium"
+                  className="flex items-start gap-2.5 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/80 text-xs text-slate-800 font-medium leading-relaxed"
                 >
-                  <span className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 shrink-0 shadow-2xs" />
                   {isEditing ? (
                     <input
                       type="text"
@@ -397,10 +397,10 @@ export default function DoctorBriefPage() {
                         setBrief({ ...brief, key_changes: updated });
                         setHasUnsavedEdits(true);
                       }}
-                      className="w-full bg-white px-2 py-1 rounded-lg border border-slate-300 outline-none"
+                      className="w-full bg-white px-3 py-1.5 rounded-xl border border-slate-300 outline-none text-xs"
                     />
                   ) : (
-                    <span>{item}</span>
+                    <span className="tabular-nums">{item}</span>
                   )}
                 </div>
               ))}
@@ -420,10 +420,10 @@ export default function DoctorBriefPage() {
                   setBrief({ ...brief, trends_summary: e.target.value });
                   setHasUnsavedEdits(true);
                 }}
-                className="w-full text-xs text-slate-700 bg-white p-3 rounded-xl border border-slate-300 outline-none leading-relaxed"
+                className="w-full text-xs text-slate-700 bg-white p-3.5 rounded-2xl border border-slate-300 outline-none leading-relaxed"
               />
             ) : (
-              <p className="text-xs text-slate-600 leading-relaxed bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100">
+              <p className="text-xs text-slate-700 leading-relaxed bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80">
                 {brief.trends_summary}
               </p>
             )}
@@ -431,29 +431,30 @@ export default function DoctorBriefPage() {
 
           {/* Two-Column Grid: Medications & Interventions */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-              <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-2">
+            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80">
+              <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-2.5">
                 Active Medications
               </h3>
-              <div className="space-y-1.5 text-xs">
+              <div className="space-y-2 text-xs">
                 {brief.current_medications.map((m, idx) => (
-                  <div key={idx} className="flex justify-between text-slate-800">
-                    <span className="font-bold">{m.name} {m.dosage}</span>
-                    <span className="text-slate-500">{m.frequency}</span>
+                  <div key={idx} className="flex justify-between items-center text-slate-800 bg-white/80 px-3 py-2 rounded-xl border border-slate-200/60 shadow-2xs">
+                    <span className="font-bold text-slate-900">{m.name} <span className="text-slate-500 font-semibold">{m.dosage}</span></span>
+                    <span className="text-slate-500 text-[11px] font-medium">{m.frequency}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-              <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-2">
+            <div className="p-4 rounded-2xl bg-purple-50/40 border border-purple-200/60">
+              <h3 className="text-xs font-black text-purple-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-purple-600 inline-block" />
                 Recent Milestones / Life Events
               </h3>
-              <div className="space-y-1.5 text-xs">
+              <div className="space-y-2 text-xs">
                 {brief.recent_events.map((e, idx) => (
-                  <div key={idx} className="flex justify-between text-slate-800">
-                    <span className="font-medium">{e.title}</span>
-                    <span className="text-purple-700 font-bold">{e.date}</span>
+                  <div key={idx} className="flex justify-between items-center text-slate-800 bg-white/80 px-3 py-2 rounded-xl border border-purple-200/60 shadow-2xs">
+                    <span className="font-medium text-slate-900">{e.title}</span>
+                    <span className="badge-milestone text-[11px] tabular-nums font-bold">{e.date}</span>
                   </div>
                 ))}
               </div>
@@ -461,14 +462,14 @@ export default function DoctorBriefPage() {
           </div>
 
           {/* 3 Questions to Ask (Editable) */}
-          <div className="p-5 rounded-3xl bg-blue-50/70 border border-blue-200 space-y-3">
-            <h3 className="text-xs font-black text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
+          <div className="p-5 rounded-3xl bg-blue-50/60 border border-blue-200/80 space-y-3 shadow-2xs">
+            <h3 className="text-xs font-black text-blue-950 uppercase tracking-wider flex items-center gap-2">
               <HelpCircle className="w-4 h-4 text-blue-700" />
               Exactly 3 Suggested Questions to Ask Your {brief.doctor_type}
             </h3>
-            <ol className="space-y-2 text-xs text-blue-900 list-decimal list-inside font-medium">
+            <ol className="space-y-2 text-xs text-blue-950 list-decimal list-inside font-medium leading-relaxed">
               {brief.questions_to_ask.map((q, idx) => (
-                <li key={idx} className="leading-snug">
+                <li key={idx} className="bg-white/90 p-2.5 rounded-xl border border-blue-200/60 shadow-2xs">
                   {isEditing ? (
                     <input
                       type="text"
@@ -482,7 +483,7 @@ export default function DoctorBriefPage() {
                       className="w-full bg-white px-2 py-1 rounded-lg border border-blue-300 outline-none text-slate-900 mt-1"
                     />
                   ) : (
-                    <span>{q}</span>
+                    <span className="ml-1 text-slate-800">{q}</span>
                   )}
                 </li>
               ))}
@@ -490,7 +491,7 @@ export default function DoctorBriefPage() {
           </div>
 
           {/* Mandatory Disclaimer */}
-          <div className="pt-3 border-t border-slate-200 text-center text-xs font-semibold text-slate-400">
+          <div className="pt-3 border-t border-slate-200/80 text-center text-xs font-semibold text-slate-400">
             {brief.disclaimer}
           </div>
         </div>
@@ -498,29 +499,36 @@ export default function DoctorBriefPage() {
 
       {/* Share Modal with QR Code */}
       {shareModalOpen && shareToken && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-blue-600" />
-                <h3 className="font-extrabold text-slate-900 text-base">24-Hour Doctor Share Link</h3>
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="card-depth bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-600/20 flex items-center justify-center">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-sm">24-Hour Doctor Share Link</h3>
+                  <p className="text-[11px] text-slate-400">Zero-login temporary patient access</p>
+                </div>
               </div>
               <button
                 onClick={() => setShareModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold transition tap-press"
               >
                 &times;
               </button>
             </div>
 
-            <p className="text-xs text-slate-500 leading-normal">
+            <p className="text-xs text-slate-500 leading-relaxed">
               Your doctor can open this link on their mobile or desktop without login or app install. Valid for 24 hours.
             </p>
 
             {/* QR Code */}
-            <div className="p-4 bg-slate-50 rounded-2xl flex flex-col items-center justify-center border border-slate-200">
-              <QRCodeSVG value={shareUrl} size={160} level="M" />
-              <p className="text-[11px] text-slate-400 mt-2 font-medium">Scan with camera to view</p>
+            <div className="p-5 bg-slate-50/90 rounded-2xl flex flex-col items-center justify-center border border-slate-200/80 shadow-2xs">
+              <div className="bg-white p-3 rounded-2xl shadow-xs border border-slate-200/60">
+                <QRCodeSVG value={shareUrl} size={150} level="M" />
+              </div>
+              <p className="text-[11px] text-slate-500 mt-2.5 font-medium">Scan with camera to view immediately</p>
             </div>
 
             {/* Link Copy Box */}
@@ -529,11 +537,11 @@ export default function DoctorBriefPage() {
                 type="text"
                 readOnly
                 value={shareUrl}
-                className="flex-1 px-3 py-2 bg-slate-100 rounded-xl text-xs font-mono text-slate-700 outline-none border border-slate-200"
+                className="flex-1 px-3 py-2.5 bg-slate-100/90 rounded-xl text-xs font-mono text-slate-700 outline-none border border-slate-200/80"
               />
               <button
                 onClick={copyToClipboard}
-                className="p-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition shrink-0"
+                className="p-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white transition tap-press shadow-2xs shrink-0"
                 title="Copy link"
               >
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -546,7 +554,7 @@ export default function DoctorBriefPage() {
                 href={shareUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="text-blue-600 hover:underline flex items-center gap-1 font-bold"
+                className="text-blue-600 hover:text-blue-700 flex items-center gap-1 font-bold tap-press"
               >
                 Open preview <ExternalLink className="w-3.5 h-3.5" />
               </a>
@@ -554,7 +562,7 @@ export default function DoctorBriefPage() {
               <button
                 onClick={handleRevoke}
                 disabled={isRevoked}
-                className="text-red-600 hover:text-red-800 font-bold disabled:opacity-50 transition"
+                className="badge-urgent hover:bg-rose-100 text-rose-700 font-bold disabled:opacity-50 transition tap-press"
               >
                 {isRevoked ? 'Revoked' : 'Revoke Link'}
               </button>

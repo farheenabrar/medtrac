@@ -29,13 +29,14 @@ export default function RootLayout({
           {children}
         </main>
 
-        <footer className="no-print border-t border-slate-200 py-6 bg-white text-center text-xs text-slate-500 mb-14 sm:mb-0">
+        <footer className="no-print border-t border-slate-200/80 py-6 bg-white/80 backdrop-blur-xs text-center text-xs text-slate-500 mb-16 sm:mb-0">
           <div className="max-w-5xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-2">
-            <p className="font-semibold text-slate-700">
+            <p className="font-semibold text-slate-700 flex items-center gap-1.5 justify-center">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
               Organises your records. Not medical advice.
             </p>
             <p className="text-slate-400">
-              Medtrac &copy; {new Date().getFullYear()} — Built for metabolic reviews across Mumbai, Dubai & worldwide.
+              Medtrac &copy; {new Date().getFullYear()} — Built for metabolic reviews across Mumbai, Dubai &amp; worldwide.
             </p>
           </div>
         </footer>
