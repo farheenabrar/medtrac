@@ -8,22 +8,19 @@ import {
   UploadCloud,
   FileText,
   SlidersHorizontal,
-  Database,
   User,
 } from 'lucide-react';
-import { isSupabaseConfigured, getStoredProfile } from '@/lib/data-service';
+import { getStoredProfile } from '@/lib/data-service';
 import { isSessionAuthenticated } from '@/lib/auth-storage';
 import MedtracLogo from './MedtracLogo';
 
 export default function Navigation() {
   const pathname = usePathname();
   const router = useRouter();
-  const [hasSupabase, setHasSupabase] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
   useEffect(() => {
-    setHasSupabase(isSupabaseConfigured());
     setIsAuthenticated(isSessionAuthenticated());
 
     const syncState = async () => {
@@ -87,28 +84,6 @@ export default function Navigation() {
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Supabase Status Pill */}
-            <div
-              className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${
-                hasSupabase
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80 shadow-[0_1px_3px_rgba(16,185,129,0.08)]'
-                  : 'bg-amber-50 text-amber-700 border-amber-200/80'
-              }`}
-              title={
-                hasSupabase
-                  ? 'Connected to Supabase PostgreSQL database'
-                  : 'Running in instant preview mode with browser persistence'
-              }
-            >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  hasSupabase ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
-                }`}
-              />
-              <Database className="w-3 h-3" />
-              <span>{hasSupabase ? 'Supabase Synced' : 'Persistent Storage Active'}</span>
-            </div>
-
             {/* Desktop Navigation Links */}
             <nav className="hidden sm:flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/70 text-xs font-bold">
               {navLinks.map((link) => {
