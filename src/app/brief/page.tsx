@@ -29,9 +29,11 @@ import {
   getStoredEvents,
   getStoredMedications,
 } from '@/lib/data-service';
+import { isSessionAuthenticated } from '@/lib/auth-storage';
 
 export default function DoctorBriefPage() {
   const router = useRouter();
+  const [authorized, setAuthorized] = useState(false);
   const [doctorType, setDoctorType] = useState<'GP' | 'Endocrinologist' | 'Nutritionist'>('GP');
   const [loading, setLoading] = useState(false);
   const [brief, setBrief] = useState<DoctorBriefContent | null>(null);
@@ -50,23 +52,29 @@ export default function DoctorBriefPage() {
 
   // Load cached brief for selected specialty or generate
   useEffect(() => {
+    if (!isSessionAuthenticated()) {
+      router.replace('/');
+      return;
+    }
+    setAuthorized(true);
+
     const cached = localStorage.getItem(`medtrac_brief_${doctorType}`);
     if (cached) {
       setBrief(JSON.parse(cached));
     } else {
       handleGenerate(doctorType);
     }
-  }, [doctorType]);
+  }, [doctorType, router]);
 
   const handleGenerate = async (selectedType: 'GP' | 'Endocrinologist' | 'Nutritionist') => {
     setLoading(true);
+    const profile = (await getStoredProfile()) || {
+      id: 'user_1',
+      full_name: 'Sarah Jenkins',
+      date_of_birth: '1985-06-15',
+      conditions: ['Triglycerides', 'Prediabetes'],
+    };
     try {
-      const profile = (await getStoredProfile()) || {
-        id: 'user_1',
-        full_name: 'Alex Mercer',
-        date_of_birth: '1985-06-15',
-        conditions: ['Prediabetes', 'High Triglycerides'],
-      };
       const results = (await getStoredResults()) || [];
       const events = (await getStoredEvents()) || [];
       const medications = (await getStoredMedications()) || [];
@@ -98,8 +106,11 @@ export default function DoctorBriefPage() {
       const fallbackBrief: DoctorBriefContent = {
         doctor_type: selectedType,
         patient_summary: {
-          name: 'Sarah Jenkins',
-          conditions: ['Prediabetes', 'High Triglycerides'],
+          name: profile.full_name || 'Sarah Jenkins',
+          conditions:
+            profile.conditions && profile.conditions.length > 0
+              ? profile.conditions
+              : ['Triglycerides', 'Prediabetes'],
         },
         last_visit_date: lastVisitDate,
         key_changes: [
@@ -213,8 +224,12 @@ export default function DoctorBriefPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  if (!authorized) {
+    return null;
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-150">
       {/* Header & Doctor Specialty Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
         <div>

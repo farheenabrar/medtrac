@@ -41,10 +41,12 @@ import {
   getStoredProfile,
   saveStoredProfile,
 } from '@/lib/data-service';
+import { isSessionAuthenticated } from '@/lib/auth-storage';
 
 export default function DashboardPage() {
   const router = useRouter();
 
+  const [authorized, setAuthorized] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [results, setResults] = useState<LabResult[]>([]);
   const [events, setEvents] = useState<LifeEvent[]>([]);
@@ -67,6 +69,15 @@ export default function DashboardPage() {
 
   // Load data on mount
   useEffect(() => {
+    if (!isSessionAuthenticated()) {
+      router.replace('/');
+      return;
+    }
+    setAuthorized(true);
+    router.prefetch('/brief');
+    router.prefetch('/upload');
+    router.prefetch('/feed-filters');
+
     async function loadAll() {
       const p = await getStoredProfile();
       if (p) {
@@ -77,8 +88,6 @@ export default function DashboardPage() {
       const res = await getStoredResults();
       if (res && res.length > 0) {
         setResults(res);
-      } else {
-        router.push('/upload');
       }
 
       const evts = await getStoredEvents();
@@ -237,8 +246,12 @@ export default function DashboardPage() {
     setShowMedModal(false);
   };
 
+  if (!authorized) {
+    return null;
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-150">
       {/* Top Banner / Controls */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -473,7 +486,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <span className="font-black text-[#581c87] text-xs sm:text-sm">
-                Cross-Border Trajectory Unlocked:
+                Metabolic Trajectory Unlocked:
               </span>
               <p className="text-[#6b21a8] text-[11px] mt-0.5 font-medium leading-relaxed">
                 Metropolis Healthcare (Mumbai, Mar 2025 in <span className="font-bold tabular-nums">235 mg/dL</span>) and Mediclinic (Dubai, Jan 2026 in <span className="font-bold tabular-nums">1.82 mmol/L</span>)

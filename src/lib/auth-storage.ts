@@ -13,6 +13,36 @@ export interface RegisteredAccount {
 }
 
 const STORAGE_KEY = 'medtrac_registered_accounts';
+const SESSION_AUTH_KEY = 'medtrac_authenticated_session';
+
+export function setSessionAuthenticated(isAuthenticated: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (isAuthenticated) {
+      sessionStorage.setItem(SESSION_AUTH_KEY, 'true');
+      localStorage.setItem(SESSION_AUTH_KEY, 'true');
+    } else {
+      sessionStorage.removeItem(SESSION_AUTH_KEY);
+      localStorage.removeItem(SESSION_AUTH_KEY);
+    }
+    window.dispatchEvent(new Event('medtrac-auth-changed'));
+  } catch (e) {
+    console.warn('Error setting session auth state:', e);
+  }
+}
+
+export function isSessionAuthenticated(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const hasSession =
+      sessionStorage.getItem(SESSION_AUTH_KEY) === 'true' ||
+      localStorage.getItem(SESSION_AUTH_KEY) === 'true';
+    const hasProfile = Boolean(localStorage.getItem('medtrac_profile'));
+    return hasSession && hasProfile;
+  } catch {
+    return false;
+  }
+}
 
 export function generateUUID(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {

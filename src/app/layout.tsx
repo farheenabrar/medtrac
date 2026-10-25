@@ -4,7 +4,7 @@ import Navigation from '@/components/Navigation';
 import SplashScreen from '@/components/SplashScreen';
 
 export const metadata: Metadata = {
-  title: 'Medtrac - Cross-Border Metabolic Tracking',
+  title: 'Medtrac - Metabolic Health Tracking',
   description:
     'Organises your scattered international lab reports into one unified picture for your doctor in under 5 minutes.',
 };

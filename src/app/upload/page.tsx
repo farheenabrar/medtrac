@@ -23,6 +23,7 @@ import {
 import { CanonicalKey, LabResult } from '@/lib/types';
 import { CANONICAL_TESTS, matchCanonicalKey, convertValue } from '@/lib/units';
 import { saveStoredResults, getStoredResults } from '@/lib/data-service';
+import { isSessionAuthenticated } from '@/lib/auth-storage';
 
 interface ReviewRow {
   id: string;
@@ -39,8 +40,8 @@ interface ReviewRow {
   status?: 'approved' | 'disapproved';
 }
 
-// Built-in cross-border sample reports to demonstrate the "Aha Moment"
-const SAMPLE_CROSS_BORDER_REPORTS: ReviewRow[] = [
+// Built-in sample reports to demonstrate the "Aha Moment"
+const SAMPLE_LAB_REPORTS: ReviewRow[] = [
   // 2025 Mumbai Report (mg/dL)
   {
     id: 'mb-1',
@@ -132,8 +133,17 @@ export default function UploadPage() {
   const [rows, setRows] = useState<ReviewRow[]>([]);
   const [statusMessage, setStatusMessage] = useState('');
   const [inspectModalRow, setInspectModalRow] = useState<ReviewRow | null>(null);
+  const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
+    if (!isSessionAuthenticated()) {
+      router.replace('/');
+      return;
+    }
+    setAuthorized(true);
+    router.prefetch('/dashboard');
+    router.prefetch('/brief');
+
     // Check if results were already stored in database / local storage
     async function checkExisting() {
       const existing = await getStoredResults();
@@ -155,7 +165,7 @@ export default function UploadPage() {
       }
     }
     checkExisting();
-  }, []);
+  }, [router]);
 
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -225,8 +235,8 @@ export default function UploadPage() {
     setStatusMessage('');
   };
 
-  const loadSampleCrossBorderReports = () => {
-    setRows(SAMPLE_CROSS_BORDER_REPORTS);
+  const loadSampleReports = () => {
+    setRows(SAMPLE_LAB_REPORTS);
   };
 
   const updateRow = (id: string, field: keyof ReviewRow, val: any) => {
@@ -325,8 +335,12 @@ export default function UploadPage() {
     router.push('/dashboard');
   };
 
+  if (!authorized) {
+    return null;
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-150">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>

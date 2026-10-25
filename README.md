@@ -1,4 +1,4 @@
-# Medtrac: Cross-Border Metabolic Tracking
+# Medtrac: Metabolic Health Tracking
 
 > **"Get ready for your 3-month review in under 5 minutes."**
 

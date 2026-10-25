@@ -2,45 +2,64 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Activity,
   UploadCloud,
   FileText,
-  User,
+  SlidersHorizontal,
   Database,
-  CheckCircle2,
-  Clock,
-  Sparkles,
+  LogOut,
 } from 'lucide-react';
 import { isSupabaseConfigured } from '@/lib/data-service';
+import { isSessionAuthenticated, setSessionAuthenticated } from '@/lib/auth-storage';
 
 export default function Navigation() {
   const pathname = usePathname();
+  const router = useRouter();
   const [hasSupabase, setHasSupabase] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     setHasSupabase(isSupabaseConfigured());
-  }, []);
+    setIsAuthenticated(isSessionAuthenticated());
 
-  // In doctor share view, do not display patient navigation
-  if (pathname.startsWith('/share/')) {
+    const handleAuthChange = () => {
+      setIsAuthenticated(isSessionAuthenticated());
+    };
+
+    window.addEventListener('medtrac-auth-changed', handleAuthChange);
+    window.addEventListener('storage', handleAuthChange);
+    return () => {
+      window.removeEventListener('medtrac-auth-changed', handleAuthChange);
+      window.removeEventListener('storage', handleAuthChange);
+    };
+  }, [pathname]);
+
+  // On the landing Welcome page ('/'), doctor share view ('/share/...'), or when unauthenticated,
+  // hide navigation so only the first screen is visible until a user profile is created after sign up.
+  if (pathname === '/' || pathname.startsWith('/share/') || !isAuthenticated) {
     return null;
   }
 
   const navLinks = [
-    { href: '/', label: 'Setup', icon: User },
-    { href: '/upload', label: 'Upload', icon: UploadCloud },
+    { href: '/feed-filters', label: 'Feed Filters', icon: SlidersHorizontal },
+    { href: '/upload', label: 'Uploads', icon: UploadCloud },
     { href: '/dashboard', label: 'Dashboard', icon: Activity },
     { href: '/brief', label: 'Doctor Brief', icon: FileText },
   ];
+
+  const handleSignOut = () => {
+    setSessionAuthenticated(false);
+    router.push('/');
+  };
 
   return (
     <>
       {/* Top Desktop / Tablet Header */}
       <header className="no-print sticky top-0 z-30 bg-white/85 backdrop-blur-xl border-b border-slate-200/80 px-4 py-3 shadow-[0_2px_12px_rgba(0,0,0,0.02)] transition-all">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 group tap-press">
+          <Link href="/feed-filters" className="flex items-center gap-3 group tap-press">
             <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-[0_4px_12px_rgba(37,99,235,0.25)] group-hover:shadow-[0_6px_16px_rgba(37,99,235,0.35)] transition-all">
               M
             </div>
@@ -49,7 +68,7 @@ export default function Navigation() {
                 Medtrac
               </span>
               <span className="text-[10px] text-slate-400 font-semibold tracking-wide uppercase hidden sm:block leading-none mt-0.5">
-                Cross-Border Metabolic Review
+                Metabolic Health Review
               </span>
             </div>
           </Link>
@@ -57,7 +76,7 @@ export default function Navigation() {
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Supabase Status Pill */}
             <div
-              className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${
+              className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${
                 hasSupabase
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80 shadow-[0_1px_3px_rgba(16,185,129,0.08)]'
                   : 'bg-amber-50 text-amber-700 border-amber-200/80'
@@ -98,6 +117,16 @@ export default function Navigation() {
                 );
               })}
             </nav>
+
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-200/80 text-[11px] font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition tap-press"
+              title="Sign out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
           </div>
         </div>
       </header>
