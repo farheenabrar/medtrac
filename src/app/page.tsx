@@ -17,6 +17,7 @@ import {
 import { UserProfile } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
 import { isSupabaseConfigured, saveStoredProfile } from '@/lib/data-service';
+import MedtracLogo from '@/components/MedtracLogo';
 import {
   generateUUID,
   saveRegisteredAccount,
@@ -545,10 +546,11 @@ export default function AuthPage() {
   return (
     <div className="min-h-[82vh] flex items-center justify-center py-6 sm:py-10 px-2">
       <div className="w-full max-w-md card-depth p-6 sm:p-8 space-y-6 bg-white rounded-[28px]">
-        {/* Top Header: Medtrac */}
-        <div className="text-center space-y-1.5 pb-1">
+        {/* Top Header: Medtrac Logo & Title */}
+        <div className="text-center space-y-2 pb-1 flex flex-col items-center">
+          <MedtracLogo size="lg" className="mb-1" />
           <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-            Medtrac
+            Med<span className="text-[#1273ff]">trac</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium">
             Metabolic records and doctor briefs

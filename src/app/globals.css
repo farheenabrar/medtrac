@@ -40,13 +40,18 @@ body {
   border-color: rgba(203, 213, 225, 0.9);
 }
 
-/* Smooth Tap Press micro-interactions */
+/* Smooth Tap Press & Toggle micro-interactions */
 .tap-press {
-  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease, background-color 0.15s ease;
+  transition:
+    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    color 0.18s ease;
 }
 
 .tap-press:active {
-  transform: scale(0.98);
+  transform: scale(0.975);
 }
 
 /* Status Badges */

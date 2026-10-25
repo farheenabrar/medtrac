@@ -1,34 +1,45 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { Sparkles, Activity, Globe, ArrowRight } from 'lucide-react';
+import MedtracLogo from './MedtracLogo';
 
 export default function SplashScreen() {
-  const [showTagline, setShowTagline] = useState(false);
+  const [progress, setProgress] = useState(12);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // 1. At 1.0 second (1000ms), animate in the tagline below Medtrac
-    const taglineTimer = setTimeout(() => {
-      setShowTagline(true);
-    }, 1000);
+    const progressInterval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) return 100;
+        return Math.min(100, prev + 8);
+      });
+    }, 150);
 
-    // 2. At 2.0 seconds (2000ms), begin smooth fade out
+    // Begin smooth fade out at 2.1 seconds
     const fadeTimer = setTimeout(() => {
       setIsFadingOut(true);
-    }, 2000);
+    }, 2100);
 
-    // 3. At 2.5 seconds (2500ms), completely remove from DOM
+    // Completely remove from DOM at 2.6 seconds
     const unmountTimer = setTimeout(() => {
       setIsVisible(false);
-    }, 2500);
+    }, 2600);
 
     return () => {
-      clearTimeout(taglineTimer);
+      clearInterval(progressInterval);
       clearTimeout(fadeTimer);
       clearTimeout(unmountTimer);
     };
   }, []);
+
+  const handleSkip = () => {
+    setIsFadingOut(true);
+    setTimeout(() => {
+      setIsVisible(false);
+    }, 250);
+  };
 
   if (!isVisible) return null;
 
@@ -36,58 +47,81 @@ export default function SplashScreen() {
     <div
       id="medtrac-splash-screen"
       style={{
-        backgroundColor: '#2563eb',
-        color: '#ffffff',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 99999,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        opacity: isFadingOut ? 0 : 1,
-        transition: 'opacity 500ms ease-in-out',
-        pointerEvents: isFadingOut ? 'none' : 'auto',
+        backgroundColor: '#0c1333',
+        backgroundImage: `
+          radial-gradient(rgba(96, 165, 250, 0.22) 1.5px, transparent 1.5px),
+          radial-gradient(ellipse at 50% 38%, rgba(29, 78, 216, 0.35) 0%, rgba(12, 19, 51, 0.95) 65%, #080d24 100%)
+        `,
+        backgroundSize: '28px 28px, 100% 100%',
       }}
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#2563eb] text-white transition-opacity duration-500 ease-in-out select-none ${
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center text-white transition-opacity duration-500 ease-out select-none px-6 ${
         isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
-      aria-label="Medtrac Splash Screen"
+      aria-label="Medtrac AI Splash Screen"
     >
-      {/* Ambient soft glow background */}
-      <div className="absolute inset-0 bg-radial-gradient pointer-events-none opacity-40 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-400/20 via-transparent to-transparent" />
-
-      <div className="relative z-10 flex flex-col items-center justify-center text-center px-6">
-        {/* Brand Header */}
-        <div className="flex items-center gap-3.5 sm:gap-4 animate-in fade-in zoom-in-95 duration-500">
-          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/15 backdrop-blur-md border border-white/30 flex items-center justify-center text-white font-black text-2xl sm:text-3xl shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
-            M
+      <div className="relative z-10 w-full max-w-lg flex flex-col items-center text-center">
+        {/* AI Orbital Emblem Container */}
+        <div className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-[38px] bg-[#132154]/75 border border-[#2c4a9e]/50 shadow-[0_0_60px_rgba(37,99,235,0.35)] flex items-center justify-center mb-6">
+          {/* Top Floating Pill: Global AI */}
+          <div className="absolute -top-3 z-20 inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#193178] border border-[#3d6ee0]/80 text-[11px] font-extrabold text-blue-100 shadow-[0_4px_12px_rgba(0,0,0,0.25)]">
+            <Sparkles className="w-3 h-3 text-[#60c5ff]" />
+            <span>Global AI</span>
           </div>
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-white drop-shadow-sm font-sans">
-            Medtrac
-          </h1>
+
+          {/* Dashed Orbital Ring */}
+          <div className="absolute w-28 h-28 sm:w-32 sm:h-32 rounded-full border border-dashed border-[#4d80e6]/45 animate-[spin_28s_linear_infinite]" />
+
+          {/* Glowing Medtrac Squircle Logo with Globe & Heart */}
+          <MedtracLogo
+            size="xl"
+            showHeart={true}
+            className="bg-gradient-to-br from-[#0088ff] via-[#1d63ff] to-[#00c6ff] border-[#7dd3fc]/70 shadow-[0_8px_28px_rgba(0,168,255,0.45)]"
+          />
         </div>
 
-        {/* Tagline animating in after 1 second in italics */}
-        <div
-          style={{
-            marginTop: '1rem',
-            opacity: showTagline ? 1 : 0,
-            transform: showTagline ? 'translateY(0)' : 'translateY(10px)',
-            transition: 'all 500ms ease-out',
-          }}
-          className={`mt-4 sm:mt-5 transition-all duration-500 ease-out transform ${
-            showTagline
-              ? 'opacity-100 translate-y-0 scale-100'
-              : 'opacity-0 translate-y-3 scale-95'
-          }`}
-        >
-          <p className="italic text-base sm:text-lg md:text-xl text-blue-100/95 font-medium tracking-wide drop-shadow-xs">
-            &ldquo;Track. Retrieve. Share.&rdquo;
-          </p>
+        {/* Two-Tone Brand Title: Med + trac */}
+        <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-none mb-4">
+          <span className="text-white">Med</span>
+          <span className="text-[#58b9ff]">trac</span>
+        </h1>
+
+        {/* AI Subtitle */}
+        <p className="text-sm sm:text-base text-slate-200/95 font-medium max-w-md leading-relaxed mb-6">
+          Your unified health records vault and AI chronic care briefing companion across cities and doctors.
+        </p>
+
+        {/* Feature Pills */}
+        <div className="flex flex-wrap items-center justify-center gap-2.5 mb-8">
+          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#111e4d]/85 border border-[#2a4796]/70 text-xs font-semibold text-slate-200 shadow-2xs">
+            <Globe className="w-3.5 h-3.5 text-[#58b9ff]" />
+            <span>Multi-Country Lab Sync</span>
+          </span>
+          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#111e4d]/85 border border-[#2a4796]/70 text-xs font-semibold text-slate-200 shadow-2xs">
+            <Activity className="w-3.5 h-3.5 text-[#58b9ff]" />
+            <span>Chronic Condition Tracking</span>
+          </span>
+        </div>
+
+        {/* Progress Bar & Status Footer */}
+        <div className="w-full max-w-md space-y-2.5">
+          <div className="w-full h-1.5 rounded-full bg-[#1b2956] overflow-hidden p-0">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#2563eb] via-[#0ea5e9] to-[#00d4ff] transition-all duration-150 ease-out shadow-[0_0_12px_rgba(0,212,255,0.7)]"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-slate-300/80 font-medium px-0.5">
+            <span>Initializing AI health intelligence...</span>
+            <button
+              type="button"
+              onClick={handleSkip}
+              className="inline-flex items-center gap-1 font-bold text-slate-300 hover:text-white transition"
+            >
+              <span>Skip</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
