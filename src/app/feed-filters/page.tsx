@@ -22,6 +22,7 @@ import {
   clearAllUserRecords,
 } from '@/lib/auth-storage';
 import { createClient } from '@/lib/supabase/client';
+import LiveHealthBanner from '@/components/LiveHealthBanner';
 
 interface ClinicalProfileOption {
   name: string;
@@ -208,6 +209,9 @@ export default function FeedFiltersPage() {
 
   return (
     <div className="max-w-4xl mx-auto py-4 sm:py-6 space-y-6 animate-in fade-in duration-150">
+      {/* Live Health Intelligence Banner (displayed only on Health Feed screen) */}
+      <LiveHealthBanner />
+
       {/* Page Title & Personalized Greeting */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>

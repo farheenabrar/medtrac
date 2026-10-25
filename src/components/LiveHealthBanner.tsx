@@ -109,9 +109,6 @@ export default function LiveHealthBanner() {
             <Lightbulb className="w-3.5 h-3.5 text-[#58c4ff] stroke-[2.2]" />
             <span>Live Health Intelligence</span>
           </span>
-          <span className="text-[11px] sm:text-xs text-blue-200/80 font-medium">
-            (4-second smart cycling feed)
-          </span>
         </div>
 
         <div className="flex items-center gap-2">

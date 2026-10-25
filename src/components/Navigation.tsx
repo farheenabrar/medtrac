@@ -14,7 +14,6 @@ import {
 import { isSupabaseConfigured, getStoredProfile } from '@/lib/data-service';
 import { isSessionAuthenticated } from '@/lib/auth-storage';
 import MedtracLogo from './MedtracLogo';
-import LiveHealthBanner from './LiveHealthBanner';
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -62,7 +61,7 @@ export default function Navigation() {
   }
 
   const navLinks = [
-    { href: '/feed-filters', label: 'Feed Filters', icon: SlidersHorizontal },
+    { href: '/feed-filters', label: 'Health Feed', icon: SlidersHorizontal },
     { href: '/upload', label: 'Uploads', icon: UploadCloud },
     { href: '/dashboard', label: 'Dashboard', icon: Activity },
     { href: '/brief', label: 'Doctor Brief', icon: FileText },
@@ -156,11 +155,6 @@ export default function Navigation() {
           </div>
         </div>
       </header>
-
-      {/* Global Live Health Intelligence 4-Second Smart Cycling Feed */}
-      <div className="no-print max-w-5xl w-full mx-auto px-4 md:px-6 pt-4">
-        <LiveHealthBanner />
-      </div>
 
       {/* Native-Feel Mobile Floating Bottom Navigation Bar */}
       <nav className="no-print sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-2xl border-t border-slate-200/80 px-2 py-1.5 flex items-center justify-around shadow-[0_-4px_24px_rgba(0,0,0,0.05)] pb-safe">
