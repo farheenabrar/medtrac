@@ -309,45 +309,68 @@ export default function AuthPage() {
     }
   };
 
+  const userFirstName = existingUser?.first_name || (existingUser?.full_name ? existingUser.full_name.split(' ')[0] : '');
+
   return (
     <div className="max-w-md mx-auto py-4 sm:py-8 space-y-5">
-      {/* Returning User Quick Access Pill */}
-      {existingUser && (
-        <div className="p-4 rounded-3xl bg-blue-50/90 border border-blue-200/80 flex items-center justify-between gap-3 shadow-2xs">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black text-sm shadow-2xs">
-              <UserCheck className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-xs font-black text-blue-950">
-                Welcome back, {existingUser.first_name || existingUser.full_name}!
-              </p>
-              <p className="text-[11px] text-blue-700 font-medium">
-                Records active in Medtrac
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black transition-all tap-press shadow-2xs"
-          >
-            <span>Resume</span>
-            <ArrowRight className="w-3 h-3" />
-          </button>
-        </div>
-      )}
-
       {/* Main Authentication Card */}
       <div className="card-depth p-6 sm:p-8 space-y-6">
-        {/* Header Title */}
+        {/* Top Header */}
         <div className="text-center space-y-1 pb-1">
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            {authMode === 'signup' ? 'Create Your Account' : 'Welcome to Medtrac'}
+            {existingUser && userFirstName ? `Welcome Back, ${userFirstName}` : 'Welcome'}
           </h1>
           <p className="text-xs text-slate-500 font-medium">
-            Cross-border metabolic records and doctor briefs
+            {existingUser
+              ? 'Your metabolic records are active in Medtrac'
+              : 'Cross-border metabolic records and doctor briefs'}
           </p>
         </div>
+
+        {/* Existing Signed-Up User Shortcut */}
+        {existingUser && (
+          <div className="p-3.5 rounded-2xl bg-blue-50/90 border border-blue-200/80 flex items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xs shadow-2xs">
+                <UserCheck className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-black text-blue-950">
+                  {existingUser.full_name || userFirstName}
+                </p>
+                <p className="text-[11px] text-blue-700 font-medium">
+                  {existingUser.email || existingUser.phone || 'Signed In Account'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem('medtrac_profile');
+                  setExistingUser(null);
+                  setFirstName('');
+                  setLastName('');
+                  setDob('');
+                  setEmail('');
+                  setPhone('');
+                }}
+                className="text-[10px] text-slate-500 hover:text-slate-700 font-semibold underline px-1"
+                title="Sign out of current profile"
+              >
+                Switch
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard')}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black transition-all tap-press shadow-2xs"
+              >
+                <span>Dashboard</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Auth Mode Toggle (Sign Up vs Sign In) */}
         <div className="inline-flex w-full rounded-2xl bg-slate-100 p-1 border border-slate-200/80 shadow-2xs">
