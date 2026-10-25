@@ -545,10 +545,10 @@ export default function AuthPage() {
   return (
     <div className="min-h-[82vh] flex items-center justify-center py-6 sm:py-10 px-2">
       <div className="w-full max-w-md card-depth p-6 sm:p-8 space-y-6 bg-white rounded-[28px]">
-        {/* Top Header: Welcome */}
+        {/* Top Header: Medtrac */}
         <div className="text-center space-y-1.5 pb-1">
           <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-            Welcome
+            Medtrac
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium">
             Metabolic records and doctor briefs
