@@ -20,6 +20,9 @@ import {
   isSessionAuthenticated,
   setSessionAuthenticated,
   clearAllUserRecords,
+  findAccountByEmail,
+  saveRegisteredAccount,
+  saveOwnCredentialEmail,
 } from '@/lib/auth-storage';
 import { createClient } from '@/lib/supabase/client';
 import LiveHealthBanner from '@/components/LiveHealthBanner';
@@ -85,23 +88,53 @@ export default function FeedFiltersPage() {
             const supabase = createClient();
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
+              if (user.email) {
+                saveOwnCredentialEmail(user.email);
+              }
+              const storedProf = await getStoredProfile();
+              const existing = user.email ? findAccountByEmail(user.email) : undefined;
+              const matchedProfile =
+                existing?.profile ||
+                (storedProf &&
+                (storedProf.id === user.id ||
+                  (user.email && storedProf.email?.toLowerCase() === user.email.toLowerCase()))
+                  ? storedProf
+                  : null);
+              if (matchedProfile) {
+                await saveStoredProfile(matchedProfile);
+                setSessionAuthenticated(true);
+                router.replace('/dashboard');
+                return;
+              }
               const fullName =
                 user.user_metadata?.full_name ||
                 user.user_metadata?.name ||
                 user.email?.split('@')[0] ||
                 'User';
               const parts = fullName.split(' ');
+              const fName = parts[0] || 'User';
+              const lName = parts.slice(1).join(' ') || '';
               clearAllUserRecords();
               const googleProfile: UserProfile = {
                 id: user.id,
                 full_name: fullName,
-                first_name: parts[0] || 'User',
-                last_name: parts.slice(1).join(' ') || '',
+                first_name: fName,
+                last_name: lName,
                 date_of_birth: user.user_metadata?.date_of_birth || '',
                 email: user.email || '',
                 conditions: [],
                 preferred_unit: 'mg_dl',
               };
+              saveRegisteredAccount({
+                id: user.id,
+                firstName: fName,
+                lastName: lName,
+                dob: googleProfile.date_of_birth,
+                email: user.email || '',
+                password: 'google_oauth_account',
+                profile: googleProfile,
+                createdAt: new Date().toISOString(),
+              });
               await saveStoredProfile(googleProfile);
               setSessionAuthenticated(true);
               setProfile(googleProfile);

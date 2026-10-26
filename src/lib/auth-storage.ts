@@ -18,8 +18,6 @@ const OWN_EMAIL_KEY = 'medtrac_own_credential_email';
 
 const LEGACY_DUMMY_EMAILS = new Set([
   'sarah.jenkins@medtrac.org',
-  'sarah.jenkins@gmail.com',
-  'test@example.com',
   'dummy.test@medtrac.org',
 ]);
 

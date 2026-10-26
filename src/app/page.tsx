@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { UserProfile } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
-import { isSupabaseConfigured, saveStoredProfile } from '@/lib/data-service';
+import { isSupabaseConfigured, getStoredProfile, saveStoredProfile } from '@/lib/data-service';
 import MedtracLogo from '@/components/MedtracLogo';
 import {
   generateUUID,
@@ -109,11 +109,20 @@ export default function AuthPage() {
                 if (user.email) {
                   saveOwnCredentialEmail(user.email);
                 }
+                const storedProf = await getStoredProfile();
                 const existing = user.email ? findAccountByEmail(user.email) : undefined;
-                if (existing) {
-                  await saveStoredProfile(existing.profile);
+                const matchedProfile =
+                  existing?.profile ||
+                  (storedProf &&
+                  (storedProf.id === user.id ||
+                    (user.email && storedProf.email?.toLowerCase() === user.email.toLowerCase()))
+                    ? storedProf
+                    : null);
+
+                if (matchedProfile) {
+                  await saveStoredProfile(matchedProfile);
                   setSessionAuthenticated(true);
-                  router.replace('/feed-filters');
+                  router.replace('/dashboard');
                   return;
                 }
                 const fullName =
@@ -136,6 +145,16 @@ export default function AuthPage() {
                   conditions: [],
                   preferred_unit: 'mg_dl',
                 };
+                saveRegisteredAccount({
+                  id: user.id,
+                  firstName: fName,
+                  lastName: lName,
+                  dob: googleProfile.date_of_birth,
+                  email: user.email || '',
+                  password: 'google_oauth_account',
+                  profile: googleProfile,
+                  createdAt: new Date().toISOString(),
+                });
                 await saveStoredProfile(googleProfile);
                 setSessionAuthenticated(true);
                 router.replace('/feed-filters');
@@ -169,7 +188,7 @@ export default function AuthPage() {
   const calculatedAge = dob ? calculateAge(dob) : 0;
   const isAdult = dob ? calculatedAge >= 18 : false;
 
-  // Complete authentication and navigate seamlessly to Feed Filters
+  // Complete authentication and navigate: new users go to Health Feed (/feed-filters), returning users go to Dashboard (/dashboard)
   const completeAuthAndNavigate = async (profile: UserProfile, isNewUser: boolean) => {
     if (profile.email) {
       saveOwnCredentialEmail(profile.email);
@@ -180,7 +199,7 @@ export default function AuthPage() {
     }
     await saveStoredProfile(profile);
     setSessionAuthenticated(true);
-    router.push('/feed-filters');
+    router.push(isNewUser ? '/feed-filters' : '/dashboard');
   };
 
   // 1. Google Sign-Up / Sign-In Handler
@@ -235,12 +254,22 @@ export default function AuthPage() {
     setLoading(true);
     setShowGoogleModal(false);
 
-    // If account already exists from signup, sign in seamlessly with their existing profile
+    // If account already exists from signup or stored profile, sign in seamlessly as returning user -> /dashboard
     const existing = findAccountByEmail(chosenEmail);
     if (existing) {
       await completeAuthAndNavigate(existing.profile, false);
       return;
     }
+
+    const storedProf = await getStoredProfile();
+    if (storedProf && storedProf.email?.toLowerCase() === chosenEmail) {
+      await completeAuthAndNavigate(storedProf, false);
+      return;
+    }
+
+    const isReturningOwnEmail =
+      Boolean(ownCredentialEmail && ownCredentialEmail.toLowerCase() === chosenEmail) ||
+      authMode === 'signin';
 
     // Otherwise create profile using their Google email
     const derivedName = chosenEmail
@@ -275,7 +304,7 @@ export default function AuthPage() {
       createdAt: new Date().toISOString(),
     });
 
-    await completeAuthAndNavigate(newProfile, true);
+    await completeAuthAndNavigate(newProfile, !isReturningOwnEmail);
   };
 
   // 2. Email Sign Up & Sign In
@@ -291,6 +320,18 @@ export default function AuthPage() {
     }
 
     if (authMode === 'signup') {
+      // Check if this email belongs to an already-registered returning user
+      const existingByEmail = findAccountByEmail(cleanEmail);
+      const storedProf = await getStoredProfile();
+      if (existingByEmail) {
+        await completeAuthAndNavigate(existingByEmail.profile, false);
+        return;
+      }
+      if (storedProf && storedProf.email?.toLowerCase() === cleanEmail) {
+        await completeAuthAndNavigate(storedProf, false);
+        return;
+      }
+
       if (!firstName.trim()) {
         setErrorMessage('Please provide your first name.');
         return;
@@ -373,6 +414,12 @@ export default function AuthPage() {
         return;
       }
 
+      const storedProf = await getStoredProfile();
+      if (storedProf && storedProf.email?.toLowerCase() === cleanEmail) {
+        await completeAuthAndNavigate(storedProf, false);
+        return;
+      }
+
       const userId = generateUUID();
       const derivedFirst = cleanEmail
         .split('@')[0]
@@ -399,7 +446,7 @@ export default function AuthPage() {
         createdAt: new Date().toISOString(),
       });
 
-      await completeAuthAndNavigate(signedInProfile, true);
+      await completeAuthAndNavigate(signedInProfile, false);
     }
   };
 
@@ -416,12 +463,17 @@ export default function AuthPage() {
     }
 
     const fullPhoneNumber = `${countryCode}${cleanDigits}`;
+    const existingPhoneAccount = findAccountByPhone(fullPhoneNumber);
 
-    if (authMode === 'signin') {
+    if (authMode === 'signin' || existingPhoneAccount) {
       setLoading(true);
-      const existingAccount = findAccountByPhone(fullPhoneNumber);
-      if (existingAccount) {
-        await completeAuthAndNavigate(existingAccount.profile, false);
+      if (existingPhoneAccount) {
+        await completeAuthAndNavigate(existingPhoneAccount.profile, false);
+        return;
+      }
+      const storedProf = await getStoredProfile();
+      if (storedProf && storedProf.phone?.replace(/\D/g, '') === fullPhoneNumber.replace(/\D/g, '')) {
+        await completeAuthAndNavigate(storedProf, false);
         return;
       }
       const userId = generateUUID();
@@ -445,7 +497,7 @@ export default function AuthPage() {
         profile,
         createdAt: new Date().toISOString(),
       });
-      await completeAuthAndNavigate(profile, true);
+      await completeAuthAndNavigate(profile, false);
       return;
     }
 

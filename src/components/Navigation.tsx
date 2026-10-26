@@ -70,7 +70,7 @@ export default function Navigation() {
       {/* Top Desktop / Tablet Header */}
       <header className="no-print sticky top-0 z-30 bg-white/95 backdrop-blur-xl border-b border-blue-100/90 px-4 py-3.5 shadow-[0_4px_20px_rgba(18,40,107,0.05)] transition-all">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
-          <Link href="/feed-filters" className="flex items-center gap-3.5 group tap-press shrink-0">
+          <Link href="/dashboard" className="flex items-center gap-3.5 group tap-press shrink-0">
             <MedtracLogo size="md" className="group-hover:scale-105 transition-transform duration-200" />
             <div>
               <span className="font-black text-xl tracking-tight text-slate-900 block leading-tight">
