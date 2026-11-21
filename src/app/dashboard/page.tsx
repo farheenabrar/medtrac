@@ -109,8 +109,17 @@ export default function DashboardPage() {
     }
   };
 
-  // The 5 key metabolic tests
-  const testKeys: CanonicalKey[] = ['triglycerides', 'hba1c', 'fasting_glucose', 'hdl', 'ldl'];
+  // The 8 key tracked biomarkers (HbA1c, Fasting Glucose, Lipids, Vitamin D, TSH, Creatinine)
+  const testKeys: CanonicalKey[] = [
+    'hba1c',
+    'fasting_glucose',
+    'triglycerides',
+    'ldl',
+    'hdl',
+    'vitamin_d',
+    'tsh',
+    'creatinine',
+  ];
 
   // Metric card summary calculations
   const getMetricSummary = (key: CanonicalKey) => {
@@ -348,8 +357,8 @@ export default function DashboardPage() {
       ) : (
         <>
 
-      {/* The 5 Key Metabolic Metric Cards with Heavy Tabular Numbers & Depth */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      {/* Key Metabolic Metric Cards with Heavy Tabular Numbers & Depth */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3">
         {metricCards.map((metric) => {
           const isSelected = selectedKey === metric.key;
           return (

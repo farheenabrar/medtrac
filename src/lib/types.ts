@@ -4,6 +4,9 @@ export type CanonicalKey =
   | 'triglycerides'
   | 'hdl'
   | 'ldl'
+  | 'vitamin_d'
+  | 'tsh'
+  | 'creatinine'
   | 'other_untracked';
 
 export type UnitSystem = 'mg_dl' | 'mmol_l';

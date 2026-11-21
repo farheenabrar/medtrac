@@ -13,6 +13,7 @@ import {
 import { getStoredProfile } from '@/lib/data-service';
 import { isSessionAuthenticated } from '@/lib/auth-storage';
 import MedtracLogo from './MedtracLogo';
+import DemoModeBanner from './DemoModeBanner';
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -67,6 +68,7 @@ export default function Navigation() {
 
   return (
     <>
+      <DemoModeBanner />
       {/* Top Desktop / Tablet Header */}
       <header className="no-print sticky top-0 z-30 bg-white/95 backdrop-blur-xl border-b border-blue-100/90 px-4 py-3.5 shadow-[0_4px_20px_rgba(18,40,107,0.05)] transition-all">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">

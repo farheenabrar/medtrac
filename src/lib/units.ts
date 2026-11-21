@@ -102,6 +102,33 @@ export const CANONICAL_TESTS: Record<CanonicalKey, TestConfig> = {
       'calculated ldl',
     ],
   },
+  vitamin_d: {
+    name: 'Vitamin D (25-OH)',
+    key: 'vitamin_d',
+    defaultMgUnit: 'ng/mL',
+    defaultMmolUnit: 'nmol/L',
+    normalRangeMg: { min: 30, max: 100 },
+    normalRangeMmol: { min: 75, max: 250 },
+    aliases: ['vitamin d', '25-oh vitamin d', '25-hydroxyvitamin d', 'vit d', 'cholecalciferol'],
+  },
+  tsh: {
+    name: 'TSH (Thyroid)',
+    key: 'tsh',
+    defaultMgUnit: 'mIU/L',
+    defaultMmolUnit: 'mIU/L',
+    normalRangeMg: { min: 0.45, max: 4.5 },
+    normalRangeMmol: { min: 0.45, max: 4.5 },
+    aliases: ['tsh', 'thyroid stimulating hormone', 'thyrotropin'],
+  },
+  creatinine: {
+    name: 'Creatinine',
+    key: 'creatinine',
+    defaultMgUnit: 'mg/dL',
+    defaultMmolUnit: 'µmol/L',
+    normalRangeMg: { min: 0.6, max: 1.2 },
+    normalRangeMmol: { min: 53, max: 106 },
+    aliases: ['creatinine', 'serum creatinine', 's. creatinine'],
+  },
   other_untracked: {
     name: 'Other / Untracked',
     key: 'other_untracked',
@@ -180,6 +207,24 @@ export function convertValue(
       // IFCC (mmol/mol) to NGSP (%)
       if (cleanFrom.includes('mmol') && cleanTo.includes('%')) {
         return roundToTwo(value / CONVERSION_CONSTANTS.HBA1C_B + CONVERSION_CONSTANTS.HBA1C_A);
+      }
+      return roundToTwo(value);
+    }
+    case 'vitamin_d': {
+      if (cleanFrom.includes('ng') && cleanTo.includes('nmol')) {
+        return roundToTwo(value * 2.496);
+      }
+      if (cleanFrom.includes('nmol') && cleanTo.includes('ng')) {
+        return roundToTwo(value / 2.496);
+      }
+      return roundToTwo(value);
+    }
+    case 'creatinine': {
+      if (cleanFrom.includes('mg') && (cleanTo.includes('mol') || cleanTo.includes('umol'))) {
+        return roundToTwo(value * 88.42);
+      }
+      if ((cleanFrom.includes('mol') || cleanFrom.includes('umol')) && cleanTo.includes('mg')) {
+        return roundToTwo(value / 88.42);
       }
       return roundToTwo(value);
     }

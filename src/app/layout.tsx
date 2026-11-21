@@ -27,18 +27,18 @@ export default function RootLayout({
         <SplashScreen />
         <Navigation />
 
-        <main className="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6 pb-24 sm:pb-8">
+        <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 pb-24 sm:pb-8 flex flex-col justify-center">
           {children}
         </main>
 
-        <footer className="no-print border-t border-slate-200/80 py-6 bg-white/80 backdrop-blur-xs text-center text-xs text-slate-500 mb-16 sm:mb-0">
-          <div className="max-w-5xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-2">
+        <footer className="no-print border-t border-slate-200/80 py-5 bg-white/80 backdrop-blur-xs text-center text-xs text-slate-600 mb-16 sm:mb-0">
+          <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-2">
             <p className="font-semibold text-slate-700 flex items-center gap-1.5 justify-center">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-              Organises your records. Not medical advice.
+              Medtrac organizes your records. It does not diagnose or replace your doctor.
             </p>
-            <p className="text-slate-400">
-              Medtrac &copy; {new Date().getFullYear()} — Built for metabolic reviews across Mumbai, Dubai &amp; worldwide.
+            <p className="text-slate-500 font-medium">
+              Medtrac &copy; {new Date().getFullYear()} • For adults 18+
             </p>
           </div>
         </footer>
