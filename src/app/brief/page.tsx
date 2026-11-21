@@ -95,6 +95,7 @@ export default function DoctorBriefPage() {
             doctor_type: selectedType,
             patient_summary: {
               name: profile.full_name || parsed.patient_summary.name,
+              age: parsed.patient_summary.age ?? 38,
               conditions: Array.isArray(profile.conditions)
                 ? profile.conditions
                 : parsed.patient_summary.conditions,

@@ -301,7 +301,7 @@ export default function FeedFiltersPage() {
                 id="onboard-first-name"
                 type="text"
                 autoComplete="given-name"
-                placeholder="Alex"
+                placeholder="Sarah"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#2F62F5] transition"
@@ -319,7 +319,7 @@ export default function FeedFiltersPage() {
                 id="onboard-last-name"
                 type="text"
                 autoComplete="family-name"
-                placeholder="Mercer"
+                placeholder="Jenkins"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#2F62F5] transition"

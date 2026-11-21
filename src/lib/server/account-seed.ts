@@ -197,11 +197,12 @@ export function getInitialEmptyIsolatedProfile(emailOverride?: string): {
 
   const profile: UserProfile = {
     id: ISOLATED_USER_ID,
-    full_name: 'Jordan Mercer',
-    first_name: 'Jordan',
-    last_name: 'Mercer',
+    full_name: 'Sarah Jenkins',
+    first_name: 'Sarah',
+    last_name: 'Jenkins',
     email: emailOverride || 'account@medtrac.app',
-    date_of_birth: '1983-04-18',
+    date_of_birth: '1988-04-18',
+    gender: 'Female',
     preferred_unit: 'mg_dl',
     conditions: [],
   };
@@ -229,11 +230,11 @@ export function getSampleReportsDataset(emailOverride?: string): {
 
   const profile: UserProfile = {
     id: ISOLATED_USER_ID,
-    full_name: 'Jordan Mercer',
-    first_name: 'Jordan',
-    last_name: 'Mercer',
+    full_name: 'Sarah Jenkins',
+    first_name: 'Sarah',
+    last_name: 'Jenkins',
     email: emailOverride || 'account@medtrac.app',
-    date_of_birth: '1983-04-18',
+    date_of_birth: '1988-04-18',
     gender: 'Female',
     weight: 71.2,
     weight_unit: 'kg',
@@ -1234,7 +1235,7 @@ export function getSampleReportsDataset(emailOverride?: string): {
     doctor_type: 'Specialist',
     patient_summary: {
       name: profile.full_name,
-      age: 43,
+      age: 38,
       conditions: profile.conditions,
     },
     last_visit_date: '2025-10-08',
