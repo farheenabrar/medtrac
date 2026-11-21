@@ -1,34 +1,30 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Activity, Globe, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import MedtracLogo from './MedtracLogo';
 
 export default function SplashScreen() {
-  const [progress, setProgress] = useState(12);
+  const [progress, setProgress] = useState(35);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) return 100;
-        return Math.min(100, prev + 8);
-      });
-    }, 150);
+    const progressTimer = setTimeout(() => {
+      setProgress(100);
+    }, 120);
 
-    // Begin smooth fade out at 2.1 seconds
+    // Shortened to under 1 second (<1000ms)
     const fadeTimer = setTimeout(() => {
       setIsFadingOut(true);
-    }, 2100);
+    }, 550);
 
-    // Completely remove from DOM at 2.6 seconds
     const unmountTimer = setTimeout(() => {
       setIsVisible(false);
-    }, 2600);
+    }, 820);
 
     return () => {
-      clearInterval(progressInterval);
+      clearTimeout(progressTimer);
       clearTimeout(fadeTimer);
       clearTimeout(unmountTimer);
     };
@@ -38,7 +34,7 @@ export default function SplashScreen() {
     setIsFadingOut(true);
     setTimeout(() => {
       setIsVisible(false);
-    }, 250);
+    }, 150);
   };
 
   if (!isVisible) return null;
@@ -54,24 +50,13 @@ export default function SplashScreen() {
         `,
         backgroundSize: '28px 28px, 100% 100%',
       }}
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center text-white transition-opacity duration-500 ease-out select-none px-6 ${
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center text-white transition-opacity duration-200 ease-out select-none px-6 motion-reduce:hidden ${
         isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
-      aria-label="Medtrac AI Splash Screen"
+      aria-label="Medtrac loading screen"
     >
       <div className="relative z-10 w-full max-w-lg flex flex-col items-center text-center">
-        {/* AI Orbital Emblem Container */}
-        <div className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-[38px] bg-[#132154]/75 border border-[#2c4a9e]/50 shadow-[0_0_60px_rgba(37,99,235,0.35)] flex items-center justify-center mb-6">
-          {/* Top Floating Pill: Global AI */}
-          <div className="absolute -top-3 z-20 inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#193178] border border-[#3d6ee0]/80 text-[11px] font-extrabold text-blue-100 shadow-[0_4px_12px_rgba(0,0,0,0.25)]">
-            <Sparkles className="w-3 h-3 text-[#60c5ff]" />
-            <span>Global AI</span>
-          </div>
-
-          {/* Dashed Orbital Ring */}
-          <div className="absolute w-28 h-28 sm:w-32 sm:h-32 rounded-full border border-dashed border-[#4d80e6]/45 animate-[spin_28s_linear_infinite]" />
-
-          {/* Glowing Medtrac Squircle Logo with Globe & Heart */}
+        <div className="mb-5">
           <MedtracLogo
             size="xl"
             showHeart={true}
@@ -79,44 +64,34 @@ export default function SplashScreen() {
           />
         </div>
 
-        {/* Two-Tone Brand Title: Med + trac */}
-        <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-none mb-4">
+        <div className="text-3xl sm:text-4xl font-black tracking-tight leading-none mb-3">
           <span className="text-white">Med</span>
           <span className="text-[#58b9ff]">trac</span>
-        </h1>
-
-        {/* AI Subtitle */}
-        <p className="text-sm sm:text-base text-slate-200/95 font-medium max-w-md leading-relaxed mb-6">
-          Your unified health records vault and AI chronic care briefing companion across cities and doctors.
-        </p>
-
-        {/* Feature Pills */}
-        <div className="flex flex-wrap items-center justify-center gap-2.5 mb-8">
-          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#111e4d]/85 border border-[#2a4796]/70 text-xs font-semibold text-slate-200 shadow-2xs">
-            <Globe className="w-3.5 h-3.5 text-[#58b9ff]" />
-            <span>Multi-Country Lab Sync</span>
-          </span>
-          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#111e4d]/85 border border-[#2a4796]/70 text-xs font-semibold text-slate-200 shadow-2xs">
-            <Activity className="w-3.5 h-3.5 text-[#58b9ff]" />
-            <span>Chronic Condition Tracking</span>
-          </span>
         </div>
 
-        {/* Progress Bar & Status Footer */}
-        <div className="w-full max-w-md space-y-2.5">
-          <div className="w-full h-1.5 rounded-full bg-[#1b2956] overflow-hidden p-0">
+        {/* Copy aligned with main headline */}
+        <p className="text-base sm:text-lg font-extrabold text-white tracking-tight mb-1.5">
+          All your lab reports. One clear health timeline.
+        </p>
+        <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-md leading-relaxed mb-6">
+          Upload your reports once. Medtrac tracks every marker over time and prepares a one-page summary for your next doctor visit.
+        </p>
+
+        {/* Progress Bar & Immediate Skip Control */}
+        <div className="w-full max-w-sm space-y-2">
+          <div className="w-full h-1.5 rounded-full bg-[#1b2956] overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-[#2563eb] via-[#0ea5e9] to-[#00d4ff] transition-all duration-150 ease-out shadow-[0_0_12px_rgba(0,212,255,0.7)]"
+              className="h-full rounded-full bg-gradient-to-r from-[#2563eb] via-[#0ea5e9] to-[#00d4ff] transition-all duration-300 ease-out"
               style={{ width: `${progress}%` }}
             />
           </div>
 
-          <div className="flex items-center justify-between text-xs text-slate-300/80 font-medium px-0.5">
-            <span>Initializing AI health intelligence...</span>
+          <div className="flex items-center justify-between text-xs text-slate-300 font-medium px-0.5">
+            <span>Loading your timeline...</span>
             <button
               type="button"
               onClick={handleSkip}
-              className="inline-flex items-center gap-1 font-bold text-slate-300 hover:text-white transition"
+              className="inline-flex items-center gap-1 font-bold text-white hover:text-[#58b9ff] transition py-1 px-2 rounded-lg bg-white/10"
             >
               <span>Skip</span>
               <ArrowRight className="w-3.5 h-3.5" />

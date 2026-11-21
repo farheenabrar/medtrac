@@ -69,6 +69,9 @@ const STANDARD_CLINICAL_PROFILES: ClinicalProfileOption[] = [
 export default function FeedFiltersPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [dob, setDob] = useState('');
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
   const [manualInput, setManualInput] = useState('');
   const [saving, setSaving] = useState(false);
@@ -160,6 +163,13 @@ export default function FeedFiltersPage() {
       }
 
       setProfile(stored);
+      setFirstName(
+        stored.first_name && stored.first_name !== 'User'
+          ? stored.first_name
+          : ''
+      );
+      setLastName(stored.last_name || '');
+      setDob(stored.date_of_birth || '');
       setSelectedConditions(Array.isArray(stored.conditions) ? stored.conditions : []);
       setAuthorized(true);
     }
@@ -222,10 +232,17 @@ export default function FeedFiltersPage() {
   const handleSaveAndContinue = async () => {
     setSaving(true);
     if (profile) {
+      const fName = firstName.trim() || profile.first_name || 'User';
+      const lName = lastName.trim() || profile.last_name || '';
       const updatedProfile: UserProfile = {
         ...profile,
+        first_name: fName,
+        last_name: lName,
+        full_name: `${fName} ${lName}`.trim(),
+        date_of_birth: dob || profile.date_of_birth || '',
         conditions: selectedConditions,
       };
+      setProfile(updatedProfile);
       await saveStoredProfile(updatedProfile);
     }
     router.push('/upload');
@@ -236,7 +253,9 @@ export default function FeedFiltersPage() {
   }
 
   const userFirstName =
-    profile?.first_name || (profile?.full_name ? profile.full_name.split(' ')[0] : 'User');
+    firstName.trim() ||
+    profile?.first_name ||
+    (profile?.full_name ? profile.full_name.split(' ')[0] : 'there');
   const standardNames = STANDARD_CLINICAL_PROFILES.map((p) => p.name);
   const customConditions = selectedConditions.filter((c) => !standardNames.includes(c));
 
@@ -257,8 +276,74 @@ export default function FeedFiltersPage() {
         </div>
       </div>
 
-      {/* Main Clinical Profiles Card */}
+      {/* Main Clinical Profiles & Post-Signup Onboarding Card */}
       <div className="card-depth p-6 sm:p-8 bg-white rounded-[28px] space-y-6">
+        {/* Post-Signup Profile Onboarding Step (Name & Date of Birth) */}
+        <div className="rounded-[24px] bg-[#f8fafc] border border-slate-200/80 p-5 sm:p-6 space-y-4">
+          <div>
+            <h2 className="text-xs sm:text-[13px] font-extrabold text-slate-600 uppercase tracking-wider">
+              Your Profile Details
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Used to personalize your health timeline and doctor visit brief.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div>
+              <label
+                htmlFor="onboard-first-name"
+                className="block text-xs font-bold text-slate-700 mb-1.5"
+              >
+                First name
+              </label>
+              <input
+                id="onboard-first-name"
+                type="text"
+                autoComplete="given-name"
+                placeholder="Alex"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#2F62F5] transition"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="onboard-last-name"
+                className="block text-xs font-bold text-slate-700 mb-1.5"
+              >
+                Last name
+              </label>
+              <input
+                id="onboard-last-name"
+                type="text"
+                autoComplete="family-name"
+                placeholder="Mercer"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#2F62F5] transition"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="onboard-dob"
+                className="block text-xs font-bold text-slate-700 mb-1.5"
+              >
+                Date of birth
+              </label>
+              <input
+                id="onboard-dob"
+                type="date"
+                value={dob}
+                onChange={(e) => setDob(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-medium text-slate-900 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#2F62F5] tabular-nums transition"
+              />
+            </div>
+          </div>
+        </div>
+
         <div className="space-y-4">
           <h2 className="text-xs sm:text-[13px] font-extrabold text-slate-500 uppercase tracking-wider">
             Standard Clinical Profiles (Click to Toggle)

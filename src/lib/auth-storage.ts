@@ -1,11 +1,4 @@
-import { UserProfile } from './types';
-import {
-  DEMO_SEED_PROFILE,
-  DEMO_SEED_RESULTS,
-  DEMO_SEED_MEDICATIONS,
-  DEMO_SEED_EVENTS,
-  DEMO_SEED_BRIEF,
-} from './demo-seed';
+import { UserProfile, LabResult, LifeEvent, Medication, DoctorBriefContent } from './types';
 
 export interface RegisteredAccount {
   id: string;
@@ -16,14 +9,13 @@ export interface RegisteredAccount {
   phone?: string;
   password: string;
   isVerified?: boolean;
-  failedAttempts?: number;
-  lockedUntil?: number;
+  onboardingComplete?: boolean;
   profile: UserProfile;
   createdAt: string;
 }
 
-export interface DemoSessionMeta {
-  is_demo: true;
+export interface IsolatedWorkspaceMeta {
+  isolated: true;
   created_at: number;
   expires_at: number;
   seed_date: string;
@@ -32,101 +24,91 @@ export interface DemoSessionMeta {
 const STORAGE_KEY = 'medtrac_registered_accounts';
 const SESSION_AUTH_KEY = 'medtrac_authenticated_session';
 const OWN_EMAIL_KEY = 'medtrac_own_credential_email';
-const DEMO_SESSION_KEY = 'medtrac_demo_session';
+const ISOLATED_SESSION_KEY = 'medtrac_isolated_session';
 
-export const DEMO_STORAGE_KEYS = {
-  PROFILE: 'medtrac_demo_profile',
-  RESULTS: 'medtrac_demo_results',
-  EVENTS: 'medtrac_demo_events',
-  MEDICATIONS: 'medtrac_demo_medications',
-  BRIEF_PREFIX: 'medtrac_demo_brief_',
+export const ISOLATED_STORAGE_KEYS = {
+  PROFILE: 'medtrac_isolated_profile',
+  RESULTS: 'medtrac_isolated_results',
+  EVENTS: 'medtrac_isolated_events',
+  MEDICATIONS: 'medtrac_isolated_medications',
+  BRIEF_PREFIX: 'medtrac_isolated_brief_',
 };
-
-const LEGACY_DUMMY_EMAILS = new Set([
-  'sarah.jenkins@medtrac.org',
-  'dummy.test@medtrac.org',
-]);
 
 function getUtcDateString(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-/**
- * Seeds or resets the isolated demo workspace in browser storage.
- * Never touches real user storage keys (`medtrac_profile`, `medtrac_results_<id>`, etc.).
- */
-export function seedIsolatedDemoWorkspace(): void {
+export function initializeIsolatedWorkspace(payload: {
+  seedDate: string;
+  profile: UserProfile;
+  results: LabResult[];
+  medications: Medication[];
+  events: LifeEvent[];
+  brief: DoctorBriefContent;
+}): void {
   if (typeof window === 'undefined') return;
   try {
     const now = Date.now();
-    const meta: DemoSessionMeta = {
-      is_demo: true,
+    const meta: IsolatedWorkspaceMeta = {
+      isolated: true,
       created_at: now,
-      expires_at: now + 24 * 60 * 60 * 1000, // 24-hour auto-delete
-      seed_date: getUtcDateString(), // Nightly reset key
+      expires_at: now + 24 * 60 * 60 * 1000,
+      seed_date: payload.seedDate || getUtcDateString(),
     };
-    sessionStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(meta));
-    localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(meta));
+    sessionStorage.setItem(ISOLATED_SESSION_KEY, JSON.stringify(meta));
+    localStorage.setItem(ISOLATED_SESSION_KEY, JSON.stringify(meta));
 
-    localStorage.setItem(DEMO_STORAGE_KEYS.PROFILE, JSON.stringify(DEMO_SEED_PROFILE));
-    localStorage.setItem(DEMO_STORAGE_KEYS.RESULTS, JSON.stringify(DEMO_SEED_RESULTS));
-    localStorage.setItem(DEMO_STORAGE_KEYS.MEDICATIONS, JSON.stringify(DEMO_SEED_MEDICATIONS));
-    localStorage.setItem(DEMO_STORAGE_KEYS.EVENTS, JSON.stringify(DEMO_SEED_EVENTS));
+    localStorage.setItem(ISOLATED_STORAGE_KEYS.PROFILE, JSON.stringify(payload.profile));
+    localStorage.setItem(ISOLATED_STORAGE_KEYS.RESULTS, JSON.stringify(payload.results));
+    localStorage.setItem(ISOLATED_STORAGE_KEYS.MEDICATIONS, JSON.stringify(payload.medications));
+    localStorage.setItem(ISOLATED_STORAGE_KEYS.EVENTS, JSON.stringify(payload.events));
     localStorage.setItem(
-      `${DEMO_STORAGE_KEYS.BRIEF_PREFIX}Specialist`,
-      JSON.stringify(DEMO_SEED_BRIEF)
+      `${ISOLATED_STORAGE_KEYS.BRIEF_PREFIX}Specialist`,
+      JSON.stringify(payload.brief)
     );
-    localStorage.setItem('medtrac_share_demo-doctor-view', JSON.stringify(DEMO_SEED_BRIEF));
 
     sessionStorage.setItem(SESSION_AUTH_KEY, 'true');
     localStorage.setItem(SESSION_AUTH_KEY, 'true');
     window.dispatchEvent(new Event('medtrac-auth-changed'));
   } catch (e) {
-    console.warn('Error seeding isolated demo workspace:', e);
+    console.warn('Error initializing isolated workspace:', e);
   }
 }
 
-/**
- * Wipes the isolated demo workspace on logout or after 24 hours.
- */
-export function clearIsolatedDemoWorkspace(): void {
+export function clearIsolatedWorkspace(): void {
   if (typeof window === 'undefined') return;
   try {
-    sessionStorage.removeItem(DEMO_SESSION_KEY);
-    localStorage.removeItem(DEMO_SESSION_KEY);
-    localStorage.removeItem(DEMO_STORAGE_KEYS.PROFILE);
-    localStorage.removeItem(DEMO_STORAGE_KEYS.RESULTS);
-    localStorage.removeItem(DEMO_STORAGE_KEYS.EVENTS);
-    localStorage.removeItem(DEMO_STORAGE_KEYS.MEDICATIONS);
+    sessionStorage.removeItem(ISOLATED_SESSION_KEY);
+    localStorage.removeItem(ISOLATED_SESSION_KEY);
+    localStorage.removeItem(ISOLATED_STORAGE_KEYS.PROFILE);
+    localStorage.removeItem(ISOLATED_STORAGE_KEYS.RESULTS);
+    localStorage.removeItem(ISOLATED_STORAGE_KEYS.EVENTS);
+    localStorage.removeItem(ISOLATED_STORAGE_KEYS.MEDICATIONS);
     Object.keys(localStorage).forEach((k) => {
-      if (k.startsWith(DEMO_STORAGE_KEYS.BRIEF_PREFIX)) {
+      if (k.startsWith(ISOLATED_STORAGE_KEYS.BRIEF_PREFIX)) {
         localStorage.removeItem(k);
       }
     });
   } catch (e) {
-    console.warn('Error clearing isolated demo workspace:', e);
+    console.warn('Error clearing isolated workspace:', e);
   }
 }
 
-/**
- * Checks whether the current session is an isolated demo session (`is_demo = true`).
- * Enforces the 24-hour expiration and nightly schedule reset automatically.
- */
-export function isDemoSession(): boolean {
+export function isIsolatedSession(): boolean {
   if (typeof window === 'undefined') return false;
   try {
     const raw =
-      sessionStorage.getItem(DEMO_SESSION_KEY) || localStorage.getItem(DEMO_SESSION_KEY);
+      sessionStorage.getItem(ISOLATED_SESSION_KEY) ||
+      localStorage.getItem(ISOLATED_SESSION_KEY);
     if (!raw) return false;
-    const meta = JSON.parse(raw) as DemoSessionMeta;
-    if (!meta || meta.is_demo !== true) return false;
+    const meta = JSON.parse(raw) as IsolatedWorkspaceMeta;
+    if (!meta || meta.isolated !== true) return false;
 
     const now = Date.now();
     const todayUtc = getUtcDateString();
-
-    // Auto-reset if 24 hours elapsed or if a new UTC day started (nightly reset)
     if (now > meta.expires_at || meta.seed_date !== todayUtc) {
-      seedIsolatedDemoWorkspace();
+      clearIsolatedWorkspace();
+      return false;
     }
     return true;
   } catch {
@@ -143,8 +125,7 @@ export function setSessionAuthenticated(isAuthenticated: boolean): void {
     } else {
       sessionStorage.removeItem(SESSION_AUTH_KEY);
       localStorage.removeItem(SESSION_AUTH_KEY);
-      // If logging out of a demo session, auto-delete the temporary demo workspace
-      clearIsolatedDemoWorkspace();
+      clearIsolatedWorkspace();
     }
     window.dispatchEvent(new Event('medtrac-auth-changed'));
   } catch (e) {
@@ -159,8 +140,8 @@ export function isSessionAuthenticated(): boolean {
       sessionStorage.getItem(SESSION_AUTH_KEY) === 'true' ||
       localStorage.getItem(SESSION_AUTH_KEY) === 'true';
     if (!hasSession) return false;
-    if (isDemoSession()) {
-      return Boolean(localStorage.getItem(DEMO_STORAGE_KEYS.PROFILE));
+    if (isIsolatedSession()) {
+      return Boolean(localStorage.getItem(ISOLATED_STORAGE_KEYS.PROFILE));
     }
     const hasProfile = Boolean(localStorage.getItem('medtrac_profile'));
     return hasProfile;
@@ -171,7 +152,7 @@ export function isSessionAuthenticated(): boolean {
 
 export function saveOwnCredentialEmail(email: string): void {
   if (typeof window === 'undefined' || !email) return;
-  if (isDemoSession()) return; // Demo sessions never overwrite real user's saved email
+  if (isIsolatedSession()) return;
   try {
     localStorage.setItem(OWN_EMAIL_KEY, email.trim().toLowerCase());
   } catch (e) {
@@ -182,24 +163,16 @@ export function saveOwnCredentialEmail(email: string): void {
 export function getOwnCredentialEmail(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    const val = localStorage.getItem(OWN_EMAIL_KEY);
-    if (val && !LEGACY_DUMMY_EMAILS.has(val.toLowerCase())) {
-      return val;
-    }
-    return null;
+    return localStorage.getItem(OWN_EMAIL_KEY);
   } catch {
     return null;
   }
 }
 
-/**
- * Clears any cached lab results, life events, medications, or doctor briefs
- * when a new user signs up so every screen starts completely empty by default.
- */
 export function clearAllUserRecords(profileId?: string): void {
   if (typeof window === 'undefined') return;
   try {
-    clearIsolatedDemoWorkspace();
+    clearIsolatedWorkspace();
     localStorage.removeItem('medtrac_results');
     localStorage.removeItem('medtrac_events');
     localStorage.removeItem('medtrac_medications');
@@ -232,20 +205,9 @@ export function getRegisteredAccounts(): RegisteredAccount[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      const cleaned = parsed.filter(
-        (acc) => !acc.email || !LEGACY_DUMMY_EMAILS.has(acc.email.toLowerCase())
-      );
-      if (cleaned.length !== parsed.length) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
-      }
-      return cleaned;
-    }
-    return [];
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
     console.warn('Error reading registered accounts:', e);
     return [];
@@ -254,7 +216,7 @@ export function getRegisteredAccounts(): RegisteredAccount[] {
 
 export function saveRegisteredAccount(account: RegisteredAccount): void {
   if (typeof window === 'undefined') return;
-  if (isDemoSession()) return; // Demo users cannot modify real registered accounts
+  if (isIsolatedSession()) return;
   try {
     if (account.email) {
       saveOwnCredentialEmail(account.email);

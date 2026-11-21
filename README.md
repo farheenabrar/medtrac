@@ -90,7 +90,17 @@ node test-units.mjs
    SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
    GEMINI_API_KEY=<your-google-gemini-key>
    NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+   # Server-only reviewer account configuration (never exposed to client bundle)
+   REVIEWER_ACCESS_ENABLED=true
+   REVIEWER_EMAIL=<your-reviewer-email>
+   REVIEWER_PASSWORD_HASH=<sha256-hex-hash-from-scripts/seed-reviewer-account.mjs>
    ```
+   To generate `REVIEWER_PASSWORD_HASH` for a long random password:
+   ```bash
+   node scripts/seed-reviewer-account.mjs "<email>" "<long-random-password>"
+   ```
+   Set `REVIEWER_ACCESS_ENABLED=false` (or remove the variable) in Vercel after the review period to switch off the reviewer account exemptions, and rotate the password hash whenever needed.
 
 *(Note: Medtrac includes a local persistence fallback, allowing immediate testing of all screens even prior to connecting Supabase keys!)*
 

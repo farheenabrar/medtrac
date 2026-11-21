@@ -1,15 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerDemoCredentials } from '../demo/route';
-
-const DISPOSABLE_DOMAINS = new Set([
-  'yopmail.com',
-  'yopmail.fr',
-  'yopmail.net',
-  'mailinator.com',
-  'guerrillamail.com',
-  'tempmail.com',
-  '10minutemail.com',
-]);
+import { isConfiguredSpecialEmail } from '@/lib/server/account-seed';
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,39 +16,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const domain = normalizedEmail.split('@')[1] || '';
-    const isDisposable = DISPOSABLE_DOMAINS.has(domain);
-    const { email: demoEmail } = getServerDemoCredentials();
-
-    if (normalizedEmail === demoEmail || normalizedEmail === 'medtrac@yopmail.com') {
-      console.info('[DEMO_PASSWORD_RESET_REQUESTED]', {
+    // Security guardrail: special account cannot change its own password or trigger real emails
+    if (isConfiguredSpecialEmail(normalizedEmail)) {
+      console.info('[SERVER_AUTH_NOTICE] Password reset suppressed for protected account', {
         email: normalizedEmail,
         timestamp: new Date().toISOString(),
       });
+      // Return identical response shape so the endpoint does not reveal the account is special
       return NextResponse.json({
         success: true,
-        isDemo: true,
-        isDisposable: true,
-        instantResetAvailable: true,
-        message:
-          'Demo account passwords cannot be permanently changed, and you do not need to wait for Yopmail. Click "Try demo account" above or "Autofill" in the Reviewer login box to sign in immediately.',
-      });
-    }
-
-    if (isDisposable) {
-      return NextResponse.json({
-        success: true,
-        isDisposable: true,
-        instantResetAvailable: true,
-        message: `Disposable inbox detected (${domain}). Because public inboxes can delay delivery, you can set a new password right below without waiting for an email.`,
+        message: `If an account exists for ${normalizedEmail}, password reset instructions have been sent.`,
       });
     }
 
     return NextResponse.json({
       success: true,
-      isDisposable: false,
-      instantResetAvailable: false,
-      message: `If an account exists for ${normalizedEmail}, a password reset link has been sent. Please check your inbox.`,
+      message: `If an account exists for ${normalizedEmail}, password reset instructions have been sent.`,
     });
   } catch (err: any) {
     console.error('[FORGOT_PASSWORD_ERROR]', err);

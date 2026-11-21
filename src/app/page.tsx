@@ -20,16 +20,11 @@ import {
   Trash2,
   ArrowRight,
   Check,
-  Copy,
-  ChevronDown,
-  Play,
-  KeyRound,
 } from 'lucide-react';
 import { UserProfile } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
 import { isSupabaseConfigured, getStoredProfile, saveStoredProfile } from '@/lib/data-service';
 import MedtracLogo from '@/components/MedtracLogo';
-import { isDemoModeEnabled } from '@/lib/demo-seed';
 import {
   generateUUID,
   saveRegisteredAccount,
@@ -40,7 +35,7 @@ import {
   getRegisteredAccounts,
   setSessionAuthenticated,
   clearAllUserRecords,
-  seedIsolatedDemoWorkspace,
+  initializeIsolatedWorkspace,
 } from '@/lib/auth-storage';
 
 const COUNTRY_CODES = [
@@ -89,43 +84,30 @@ export default function AuthPage() {
   const [channel, setChannel] = useState<'email' | 'phone'>('email');
   const [phoneAuthMethod, setPhoneAuthMethod] = useState<'password' | 'otp'>('otp');
 
-  // Form Fields
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [dob, setDob] = useState('');
+  // Form Fields (Sign-Up reduced to email/phone, password, and "I'm 18 or older" checkbox)
   const [email, setEmail] = useState('');
   const [countryCode, setCountryCode] = useState('+971');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-
-  // Demo Mode & Server-Fetched Reviewer Credentials (never hardcoded in client bundle)
-  const [demoEnabled, setDemoEnabled] = useState<boolean>(isDemoModeEnabled());
-  const [demoCreds, setDemoCreds] = useState<{ email: string; password: string } | null>(null);
-  const [reviewerBoxOpen, setReviewerBoxOpen] = useState(false);
-  const [copiedField, setCopiedField] = useState<'email' | 'password' | null>(null);
+  const [isAdultConfirmed, setIsAdultConfirmed] = useState(false);
 
   // Field-level inline validation errors
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [nameError, setNameError] = useState<string | null>(null);
-  const [dobError, setDobError] = useState<string | null>(null);
+  const [adultError, setAdultError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
-  // Specific Auth Error Code for rich contextual actions (Forgot password / Switch to Sign Up / Resend link / Try demo)
+  // Specific Auth Error Code for contextual actions
   const [authErrorCode, setAuthErrorCode] = useState<AuthErrorCode>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  // Disposable-inbox friendly Forgot Password flow
   const [forgotPasswordNotice, setForgotPasswordNotice] = useState<string | null>(null);
-  const [showInstantResetBox, setShowInstantResetBox] = useState(false);
-  const [newResetPassword, setNewResetPassword] = useState('');
 
   // OTP State
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
-  const [testOtpNotice, setTestOtpNotice] = useState<string | null>(null);
+  const [otpNotice, setOtpNotice] = useState<string | null>(null);
 
   // Google Sign-In / Sign-Up Modal State
   const [showGoogleModal, setShowGoogleModal] = useState(false);
@@ -138,7 +120,6 @@ export default function AuthPage() {
 
   // Loading state (prevents double submits)
   const [loading, setLoading] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(false);
 
   useEffect(() => {
     router.prefetch('/feed-filters');
@@ -168,23 +149,6 @@ export default function AuthPage() {
         setAuthMode('signup');
       }
     }
-
-    // Fetch demo mode status and reviewer credentials from server API (never hardcoded in client bundle)
-    fetch('/api/auth/demo')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && data.enabled) {
-          setDemoEnabled(true);
-          if (data.email && data.password) {
-            setDemoCreds({ email: data.email, password: data.password });
-          }
-        } else {
-          setDemoEnabled(false);
-        }
-      })
-      .catch(() => {
-        // Keep default environment flag fallback
-      });
 
     async function checkOAuthRedirect() {
       if (typeof window !== 'undefined') {
@@ -268,8 +232,7 @@ export default function AuthPage() {
   const clearAllErrorsOnTyping = () => {
     if (emailError) setEmailError(null);
     if (passwordError) setPasswordError(null);
-    if (nameError) setNameError(null);
-    if (dobError) setDobError(null);
+    if (adultError) setAdultError(null);
     if (phoneError) setPhoneError(null);
     if (errorMessage) setErrorMessage(null);
     if (authErrorCode) setAuthErrorCode(null);
@@ -278,30 +241,13 @@ export default function AuthPage() {
   const clearInlineErrors = () => {
     setEmailError(null);
     setPasswordError(null);
-    setNameError(null);
-    setDobError(null);
+    setAdultError(null);
     setPhoneError(null);
     setErrorMessage(null);
     setAuthErrorCode(null);
     setSuccessMessage(null);
     setForgotPasswordNotice(null);
-    setShowInstantResetBox(false);
   };
-
-  const calculateAge = (birthDateString: string): number => {
-    if (!birthDateString) return 0;
-    const today = new Date();
-    const birthDate = new Date(birthDateString);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  const calculatedAge = dob ? calculateAge(dob) : 0;
-  const isAdult = dob ? calculatedAge >= 18 : false;
 
   const passwordStrength = useMemo(() => {
     if (!password) {
@@ -350,42 +296,6 @@ export default function AuthPage() {
     };
   }, [password]);
 
-  // =========================================================================
-  // STEP 2: One-Tap "Try demo account (no sign-up needed)" Handler
-  // =========================================================================
-  const handleTryDemoAccount = async () => {
-    if (loading || demoLoading) return;
-    clearInlineErrors();
-    setDemoLoading(true);
-    try {
-      await fetch('/api/auth/demo', { method: 'POST' });
-    } catch {
-      // Proceed with isolated local demo seed if offline
-    }
-    seedIsolatedDemoWorkspace();
-    router.push('/dashboard');
-  };
-
-  // =========================================================================
-  // STEP 3: Reviewer Login Copy & Autofill Helpers
-  // =========================================================================
-  const handleCopyReviewerField = (field: 'email' | 'password', value: string) => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(value);
-      setCopiedField(field);
-      setTimeout(() => setCopiedField(null), 1800);
-    }
-  };
-
-  const handleAutofillReviewer = () => {
-    if (!demoCreds) return;
-    clearInlineErrors();
-    setAuthMode('signin');
-    setChannel('email');
-    setEmail(demoCreds.email);
-    setPassword(demoCreds.password);
-  };
-
   const completeAuthAndNavigate = async (profile: UserProfile, isNewUser: boolean) => {
     if (profile.email) {
       saveOwnCredentialEmail(profile.email);
@@ -401,7 +311,7 @@ export default function AuthPage() {
 
   // 1. Google Sign-Up / Sign-In Handler
   const handleGoogleSignIn = async () => {
-    if (loading || demoLoading) return;
+    if (loading) return;
     clearInlineErrors();
     const savedOwn = getOwnCredentialEmail();
     setOwnCredentialEmail(savedOwn);
@@ -468,8 +378,8 @@ export default function AuthPage() {
       .replace(/[._-]/g, ' ')
       .replace(/\b\w/g, (l) => l.toUpperCase());
     const nameParts = derivedName.split(' ');
-    const fName = firstName.trim() || nameParts[0] || 'User';
-    const lName = lastName.trim() || nameParts.slice(1).join(' ') || '';
+    const fName = nameParts[0] || 'User';
+    const lName = nameParts.slice(1).join(' ') || '';
 
     const userId = generateUUID();
     const newProfile: UserProfile = {
@@ -477,7 +387,7 @@ export default function AuthPage() {
       full_name: `${fName} ${lName}`.trim(),
       first_name: fName,
       last_name: lName,
-      date_of_birth: dob || '',
+      date_of_birth: '',
       email: chosenEmail,
       phone: '',
       conditions: [],
@@ -488,7 +398,7 @@ export default function AuthPage() {
       id: userId,
       firstName: fName,
       lastName: lName,
-      dob: newProfile.date_of_birth,
+      dob: '',
       email: chosenEmail,
       password: 'google_oauth_account',
       isVerified: true,
@@ -499,14 +409,12 @@ export default function AuthPage() {
     await completeAuthAndNavigate(newProfile, authMode === 'signup');
   };
 
-  // =========================================================================
-  // STEP 5: Forgot Password Flow (Works with Disposable / Yopmail Inboxes)
-  // =========================================================================
+  // Forgot Password Flow
   const handleForgotPassword = async () => {
     clearInlineErrors();
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      setEmailError('Enter your email address above first so we can reset your password.');
+      setEmailError('Enter your email address above first so we can send a password reset link.');
       return;
     }
 
@@ -522,34 +430,11 @@ export default function AuthPage() {
         return;
       }
       setForgotPasswordNotice(data.message);
-      if (data.instantResetAvailable && !data.isDemo) {
-        setShowInstantResetBox(true);
-      }
     } catch {
       setForgotPasswordNotice(
-        `Password reset instructions have been prepared for ${cleanEmail}.`
+        `If an account exists for ${cleanEmail}, password reset instructions have been sent.`
       );
     }
-  };
-
-  const handleInstantDisposablePasswordReset = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanEmail = email.trim().toLowerCase();
-    if (!newResetPassword || newResetPassword.length < 6) {
-      setPasswordError('Please choose a new password with at least 6 characters.');
-      return;
-    }
-    const existing = findAccountByEmail(cleanEmail);
-    if (existing) {
-      saveRegisteredAccount({
-        ...existing,
-        password: newResetPassword,
-      });
-    }
-    setPassword(newResetPassword);
-    setShowInstantResetBox(false);
-    setForgotPasswordNotice(null);
-    setSuccessMessage('Your password has been updated. Click Sign In below to continue.');
   };
 
   const handleResendVerificationLink = () => {
@@ -559,39 +444,21 @@ export default function AuthPage() {
       saveRegisteredAccount({ ...existing, isVerified: true });
     }
     clearInlineErrors();
-    setSuccessMessage(
-      `Verification link resent to ${cleanEmail} (and verified for this session). You can sign in now.`
-    );
+    setSuccessMessage(`Verification email resent to ${cleanEmail}. You may now sign in.`);
   };
 
-  // =========================================================================
-  // STEP 4 & 5: Email Sign Up & Sign In with Exact Password & Status Codes
-  // =========================================================================
+  // 2. Email Sign Up & Sign In
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading || demoLoading) return; // Prevent double submits
+    if (loading) return;
     clearInlineErrors();
 
     // Normalize email on client: trim and lowercase
     const cleanEmail = email.trim().toLowerCase();
-    // NEVER trim or modify password on client
+    // Never trim or alter password on client
     const rawPassword = password;
 
     let hasValidationError = false;
-
-    if (authMode === 'signup') {
-      if (!firstName.trim() || !lastName.trim()) {
-        setNameError('Please enter both your first and last name.');
-        hasValidationError = true;
-      }
-      if (!dob) {
-        setDobError('Please enter your date of birth.');
-        hasValidationError = true;
-      } else if (!isAdult) {
-        setDobError('Medtrac is designed for adults 18 and older.');
-        hasValidationError = true;
-      }
-    }
 
     if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       setEmailError("That email doesn't look right. Try a format like you@example.com.");
@@ -603,6 +470,11 @@ export default function AuthPage() {
       hasValidationError = true;
     } else if (authMode === 'signin' && !rawPassword) {
       setPasswordError('Please enter your password to sign in.');
+      hasValidationError = true;
+    }
+
+    if (authMode === 'signup' && !isAdultConfirmed) {
+      setAdultError('Please confirm that you are 18 or older to create an account.');
       hasValidationError = true;
     }
 
@@ -618,14 +490,6 @@ export default function AuthPage() {
           const { data } = await supabase.auth.signUp({
             email: cleanEmail,
             password: rawPassword,
-            options: {
-              data: {
-                first_name: firstName.trim(),
-                last_name: lastName.trim(),
-                full_name: `${firstName.trim()} ${lastName.trim()}`,
-                date_of_birth: dob,
-              },
-            },
           });
           if (data?.user?.id) {
             userId = data.user.id;
@@ -635,12 +499,19 @@ export default function AuthPage() {
         }
       }
 
+      const derivedFirst =
+        cleanEmail
+          .split('@')[0]
+          .replace(/[._-]/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase())
+          .split(' ')[0] || 'User';
+
       const newProfile: UserProfile = {
         id: userId,
-        full_name: `${firstName.trim()} ${lastName.trim()}`,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        date_of_birth: dob,
+        full_name: derivedFirst,
+        first_name: derivedFirst,
+        last_name: '',
+        date_of_birth: '',
         email: cleanEmail,
         phone: '',
         conditions: [],
@@ -649,12 +520,13 @@ export default function AuthPage() {
 
       saveRegisteredAccount({
         id: userId,
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        dob,
+        firstName: derivedFirst,
+        lastName: '',
+        dob: '',
         email: cleanEmail,
         password: rawPassword,
         isVerified: true,
+        onboardingComplete: false,
         profile: newProfile,
         createdAt: new Date().toISOString(),
       });
@@ -685,7 +557,7 @@ export default function AuthPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: cleanEmail,
-            password: rawPassword, // Sent unmodified over HTTPS
+            password: rawPassword,
             clientAccount: clientAccountSnapshot,
           }),
         });
@@ -704,18 +576,22 @@ export default function AuthPage() {
           } else if (res.status === 403 && code === 'EMAIL_UNVERIFIED') {
             setErrorMessage('Please verify your email.');
           } else if (res.status === 423 || res.status === 429) {
-            setErrorMessage(
-              'Too many attempts. Try again in 10 minutes, or use the demo account.'
-            );
+            setErrorMessage('Too many attempts. Please try again in 10 minutes.');
           } else {
             setErrorMessage(data.message || "That password doesn't match. Try again or reset it.");
           }
           return;
         }
 
-        // If the signed-in account is the demo account, initialize isolated demo workspace
-        if (data.is_demo) {
-          seedIsolatedDemoWorkspace();
+        if (data.isolatedWorkspace && data.profile) {
+          initializeIsolatedWorkspace({
+            seedDate: data.seedDate,
+            profile: data.profile,
+            results: data.results || [],
+            medications: data.medications || [],
+            events: data.events || [],
+            brief: data.brief,
+          });
           router.push('/dashboard');
           return;
         }
@@ -730,7 +606,7 @@ export default function AuthPage() {
           return;
         }
       } catch (err) {
-        console.warn('Sign-in endpoint fallback:', err);
+        console.warn('Sign-in endpoint error:', err);
       }
 
       setLoading(false);
@@ -742,7 +618,7 @@ export default function AuthPage() {
   // 3. Mobile Phone Auth Handler (Country code + OTP)
   const handlePhoneAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading || demoLoading) return;
+    if (loading) return;
     clearInlineErrors();
 
     const cleanDigits = phone.replace(/\D/g, '');
@@ -751,18 +627,9 @@ export default function AuthPage() {
       return;
     }
 
-    if (authMode === 'signup') {
-      if (!firstName.trim() || !lastName.trim()) {
-        setNameError('Please enter both your first and last name.');
-        return;
-      }
-      if (!dob) {
-        setDobError('Please enter your date of birth.');
-        return;
-      } else if (!isAdult) {
-        setDobError('Medtrac is designed for adults 18 and older.');
-        return;
-      }
+    if (authMode === 'signup' && !isAdultConfirmed) {
+      setAdultError('Please confirm that you are 18 or older to create an account.');
+      return;
     }
 
     const fullPhoneNumber = `${countryCode}${cleanDigits}`;
@@ -770,7 +637,7 @@ export default function AuthPage() {
     if (phoneAuthMethod === 'otp' && !otpSent) {
       setLoading(true);
       setTimeout(() => {
-        setTestOtpNotice(`Verification code sent to ${fullPhoneNumber}. (Demo code: 123456)`);
+        setOtpNotice(`Verification code sent to ${fullPhoneNumber}.`);
         setOtpSent(true);
         setLoading(false);
       }, 300);
@@ -793,19 +660,19 @@ export default function AuthPage() {
       const userId = generateUUID();
       const profile: UserProfile = {
         id: userId,
-        full_name: `${firstName.trim()} ${lastName.trim()}`.trim() || 'User',
-        first_name: firstName.trim() || 'User',
-        last_name: lastName.trim() || '',
-        date_of_birth: dob || '',
+        full_name: 'User',
+        first_name: 'User',
+        last_name: '',
+        date_of_birth: '',
         phone: fullPhoneNumber,
         conditions: [],
         preferred_unit: 'mg_dl',
       };
       saveRegisteredAccount({
         id: userId,
-        firstName: profile.first_name || 'User',
-        lastName: profile.last_name || '',
-        dob: profile.date_of_birth,
+        firstName: 'User',
+        lastName: '',
+        dob: '',
         phone: fullPhoneNumber,
         password: 'otp_verified',
         isVerified: true,
@@ -838,10 +705,10 @@ export default function AuthPage() {
     const userId = generateUUID();
     const newProfile: UserProfile = {
       id: userId,
-      full_name: `${firstName.trim()} ${lastName.trim()}`.trim() || 'User',
-      first_name: firstName.trim() || 'User',
-      last_name: lastName.trim() || '',
-      date_of_birth: dob,
+      full_name: 'User',
+      first_name: 'User',
+      last_name: '',
+      date_of_birth: '',
       phone: fullPhoneNumber,
       conditions: [],
       preferred_unit: 'mg_dl',
@@ -849,9 +716,9 @@ export default function AuthPage() {
 
     saveRegisteredAccount({
       id: userId,
-      firstName: newProfile.first_name || 'User',
-      lastName: newProfile.last_name || '',
-      dob,
+      firstName: 'User',
+      lastName: '',
+      dob: '',
       phone: fullPhoneNumber,
       password,
       isVerified: true,
@@ -884,59 +751,14 @@ export default function AuthPage() {
     <div className="min-h-[calc(100vh-110px)] flex flex-col justify-center py-6 sm:py-10 px-2 sm:px-4 motion-reduce:animate-none animate-in fade-in duration-200">
       <div className="w-full max-w-5xl mx-auto">
         {/* ===================================================================== */}
-        {/* MOBILE COMPACT VALUE PROPOSITION (Shown above the card on <lg)        */}
-        {/* ===================================================================== */}
-        <div className="lg:hidden mb-6 max-w-[445px] mx-auto space-y-4">
-          <div className="flex items-center gap-3">
-            <MedtracLogo size="md" />
-            <span className="text-2xl font-black tracking-tight text-slate-900">
-              Med<span className="text-[#2F62F5]">trac</span>
-            </span>
-          </div>
-
-          <div className="space-y-1.5">
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-tight">
-              All your lab reports. One clear health timeline.
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Upload your reports once. Medtrac tracks every marker over time and prepares a one-page summary for your next doctor visit.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-2 bg-white/90 border border-slate-200/90 rounded-2xl p-3.5 shadow-2xs text-xs">
-            <div className="flex items-start gap-2.5">
-              <div className="w-6 h-6 rounded-lg bg-blue-50 text-[#2F62F5] flex items-center justify-center shrink-0 mt-0.5">
-                <UploadCloud className="w-3.5 h-3.5" />
-              </div>
-              <p className="text-slate-700">
-                <strong className="font-bold text-slate-900">Upload anything:</strong> PDFs or photos from any lab, in seconds.
-              </p>
-            </div>
-            <div className="flex items-start gap-2.5">
-              <div className="w-6 h-6 rounded-lg bg-blue-50 text-[#2F62F5] flex items-center justify-center shrink-0 mt-0.5">
-                <TrendingUp className="w-3.5 h-3.5" />
-              </div>
-              <p className="text-slate-700">
-                <strong className="font-bold text-slate-900">See trends, not just numbers:</strong> Watch HbA1c, cholesterol, glucose and more change over months and years.
-              </p>
-            </div>
-            <div className="flex items-start gap-2.5">
-              <div className="w-6 h-6 rounded-lg bg-blue-50 text-[#2F62F5] flex items-center justify-center shrink-0 mt-0.5">
-                <FileText className="w-3.5 h-3.5" />
-              </div>
-              <p className="text-slate-700">
-                <strong className="font-bold text-slate-900">Walk into appointments prepared:</strong> Get a doctor-ready brief with what changed, what&apos;s out of range, and what to ask.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* ===================================================================== */}
-        {/* DESKTOP TWO-COLUMN SPLIT (Left: Value Prop, Right: 445px Auth Card)   */}
+        {/* SINGLE SEMANTIC VALUE PROPOSITION + AUTH GRID (No duplicate DOM text) */}
         {/* ===================================================================== */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 xl:gap-12 items-center">
-          {/* LEFT PANEL: Value Proposition, Sample Timeline Chart & Mini Brief */}
-          <div className="hidden lg:flex lg:col-span-7 flex-col justify-center space-y-6 pr-2">
+          {/* LEFT / TOP PANEL: Value Proposition (Single DOM instance for desktop & mobile) */}
+          <section
+            aria-labelledby="medtrac-hero-heading"
+            className="lg:col-span-7 flex flex-col justify-center space-y-5 lg:space-y-6 lg:pr-2 max-w-[445px] lg:max-w-none mx-auto w-full"
+          >
             {/* Brand Wordmark */}
             <div className="flex items-center gap-3.5">
               <MedtracLogo size="md" />
@@ -946,57 +768,64 @@ export default function AuthPage() {
             </div>
 
             {/* Headline & Subheading */}
-            <div className="space-y-3">
-              <h1 className="text-3xl xl:text-4xl font-black text-slate-900 tracking-tight leading-[1.15]">
+            <div className="space-y-2.5">
+              <h1
+                id="medtrac-hero-heading"
+                className="text-2xl sm:text-3xl xl:text-4xl font-black text-slate-900 tracking-tight leading-[1.15]"
+              >
                 All your lab reports.{' '}
                 <span className="text-[#2F62F5]">One clear health timeline.</span>
               </h1>
-              <p className="text-base text-slate-600 leading-relaxed max-w-xl font-medium">
+              <p className="text-xs sm:text-sm lg:text-base text-slate-600 leading-relaxed max-w-xl font-medium">
                 Upload your reports once. Medtrac tracks every marker over time and prepares a one-page summary for your next doctor visit.
               </p>
             </div>
 
             {/* Three Benefit Rows */}
-            <div className="space-y-3.5">
-              <div className="flex items-start gap-3.5">
-                <div className="w-10 h-10 rounded-2xl bg-[#EEF3FF] border border-[#D6E3FF] text-[#2F62F5] flex items-center justify-center shrink-0 shadow-2xs">
-                  <UploadCloud className="w-5 h-5" />
+            <div className="space-y-3 bg-white/90 lg:bg-transparent border border-slate-200/80 lg:border-0 rounded-2xl lg:rounded-none p-4 lg:p-0 shadow-2xs lg:shadow-none">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-xl lg:rounded-2xl bg-[#EEF3FF] border border-[#D6E3FF] text-[#2F62F5] flex items-center justify-center shrink-0 shadow-2xs">
+                  <UploadCloud className="w-4 h-4 lg:w-5 lg:h-5" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">Upload anything</h2>
-                  <p className="text-sm text-slate-600">
+                  <h2 className="text-xs sm:text-sm font-bold text-slate-900">Upload anything</h2>
+                  <p className="text-xs sm:text-sm text-slate-600">
                     PDFs or photos from any lab, in seconds.
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3.5">
-                <div className="w-10 h-10 rounded-2xl bg-[#EEF3FF] border border-[#D6E3FF] text-[#2F62F5] flex items-center justify-center shrink-0 shadow-2xs">
-                  <TrendingUp className="w-5 h-5" />
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-xl lg:rounded-2xl bg-[#EEF3FF] border border-[#D6E3FF] text-[#2F62F5] flex items-center justify-center shrink-0 shadow-2xs">
+                  <TrendingUp className="w-4 h-4 lg:w-5 lg:h-5" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">See trends, not just numbers</h2>
-                  <p className="text-sm text-slate-600">
+                  <h2 className="text-xs sm:text-sm font-bold text-slate-900">
+                    See trends, not just numbers
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-600">
                     Watch HbA1c, cholesterol, glucose and more change over months and years.
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3.5">
-                <div className="w-10 h-10 rounded-2xl bg-[#EEF3FF] border border-[#D6E3FF] text-[#2F62F5] flex items-center justify-center shrink-0 shadow-2xs">
-                  <FileText className="w-5 h-5" />
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-xl lg:rounded-2xl bg-[#EEF3FF] border border-[#D6E3FF] text-[#2F62F5] flex items-center justify-center shrink-0 shadow-2xs">
+                  <FileText className="w-4 h-4 lg:w-5 lg:h-5" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">Walk into appointments prepared</h2>
-                  <p className="text-sm text-slate-600">
+                  <h2 className="text-xs sm:text-sm font-bold text-slate-900">
+                    Walk into appointments prepared
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-600">
                     Get a doctor-ready brief with what changed, what&apos;s out of range, and what to ask.
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Small Product Visual: Mock Timeline Chart + Mini Doctor Brief Card (Labeled "Sample") */}
-            <div className="grid grid-cols-12 gap-3.5 pt-1">
+            {/* Small Product Visual: Mock Timeline Chart + Mini Doctor Brief Card (Hidden with display:none on mobile) */}
+            <div className="hidden lg:grid grid-cols-12 gap-3.5 pt-1">
               {/* Mock Timeline Chart */}
               <div className="col-span-7 bg-white rounded-2xl border border-slate-200/90 p-4 shadow-[0_4px_20px_rgba(15,23,42,0.04)] space-y-2.5">
                 <div className="flex items-center justify-between">
@@ -1016,7 +845,7 @@ export default function AuthPage() {
 
                 {/* SVG Line Graph with Highlighted "Out of range" Point */}
                 <div className="relative pt-2 pb-1">
-                  <svg viewBox="0 0 260 95" className="w-full h-24 overflow-visible">
+                  <svg viewBox="0 0 260 95" className="w-full h-24 overflow-visible" aria-hidden="true">
                     <rect x="0" y="48" width="260" height="32" rx="4" fill="#ecfdf5" />
                     <line x1="0" y1="48" x2="260" y2="48" stroke="#6ee7b7" strokeDasharray="3 3" strokeWidth="1" />
 
@@ -1062,7 +891,7 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              {/* Mini "Doctor brief" Preview Card */}
+              {/* Mini "Doctor brief" Preview Card with One-Line Explanation of 24h QR Link */}
               <div className="col-span-5 bg-white rounded-2xl border border-slate-200/90 p-4 shadow-[0_4px_20px_rgba(15,23,42,0.04)] flex flex-col justify-between space-y-2.5">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <span className="text-xs font-extrabold text-slate-900">Doctor Brief</span>
@@ -1071,7 +900,7 @@ export default function AuthPage() {
                   </span>
                 </div>
 
-                <div className="space-y-2 text-[11px]">
+                <div className="space-y-1.5 text-[11px]">
                   <div className="flex items-start gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
                     <p className="text-slate-700 leading-snug">
@@ -1092,15 +921,20 @@ export default function AuthPage() {
                   </div>
                 </div>
 
-                <div className="pt-1 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 font-semibold">
-                  <span>1-page PDF &amp; 24h QR link</span>
-                  <span className="text-[#2F62F5] font-bold">Ready →</span>
+                <div className="pt-2 border-t border-slate-100 space-y-1">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-800">
+                    <span>1-page PDF &amp; 24h QR link</span>
+                    <span className="text-[#2F62F5]">Ready →</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 leading-snug">
+                    Your doctor can scan or open the read-only link without an account; access expires automatically after 24 hours.
+                  </p>
                 </div>
               </div>
             </div>
 
             {/* "How it works" Strip: Upload -> Timeline -> Doctor brief */}
-            <div className="inline-flex flex-wrap items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/85 border border-slate-200/80 shadow-2xs text-xs font-semibold text-slate-700 self-start">
+            <div className="hidden lg:inline-flex flex-wrap items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/85 border border-slate-200/80 shadow-2xs text-xs font-semibold text-slate-700 self-start">
               <span className="text-slate-400 font-bold uppercase text-[10px] tracking-wider mr-1">
                 How it works:
               </span>
@@ -1125,7 +959,7 @@ export default function AuthPage() {
                 Doctor brief
               </span>
             </div>
-          </div>
+          </section>
 
           {/* ===================================================================== */}
           {/* RIGHT PANEL: Auth Card (445px width, generous spacing)                */}
@@ -1189,7 +1023,7 @@ export default function AuthPage() {
               <button
                 type="button"
                 onClick={handleGoogleSignIn}
-                disabled={loading || demoLoading}
+                disabled={loading}
                 className="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-2xl bg-white border border-slate-300/90 hover:bg-slate-50 text-slate-800 text-xs sm:text-sm font-bold transition-all tap-press shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F62F5]"
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
@@ -1212,30 +1046,6 @@ export default function AuthPage() {
                 </svg>
                 <span>Continue with Google</span>
               </button>
-
-              {/* ===================================================================== */}
-              {/* STEP 2: One-Tap "Try demo account (no sign-up needed)" below Google   */}
-              {/* ===================================================================== */}
-              {demoEnabled && (
-                <div className="space-y-1.5">
-                  <button
-                    type="button"
-                    onClick={handleTryDemoAccount}
-                    disabled={loading || demoLoading}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-2xl bg-[#EEF3FF] hover:bg-[#E0EAFF] border border-[#C2D6FF] text-[#1E40AF] text-xs sm:text-sm font-extrabold transition-all tap-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F62F5]"
-                  >
-                    {demoLoading ? (
-                      <RefreshCw className="w-4 h-4 animate-spin text-[#2F62F5]" />
-                    ) : (
-                      <Play className="w-3.5 h-3.5 fill-[#2F62F5] text-[#2F62F5]" />
-                    )}
-                    <span>Try demo account (no sign-up needed)</span>
-                  </button>
-                  <p className="text-center text-[11px] text-slate-500 font-medium">
-                    Explore Medtrac with sample lab reports. No real data.
-                  </p>
-                </div>
-              )}
 
               {/* Fixed Centered Divider: Line on Both Sides, Text on One Line */}
               <div className="flex items-center gap-3" role="separator">
@@ -1281,9 +1091,7 @@ export default function AuthPage() {
                 </button>
               </div>
 
-              {/* ===================================================================== */}
-              {/* STEP 4: Specific Actionable Error Banner (with contextual links)       */}
-              {/* ===================================================================== */}
+              {/* Actionable Error Banner */}
               {errorMessage && (
                 <div
                   role="alert"
@@ -1294,7 +1102,6 @@ export default function AuthPage() {
                     <span>{errorMessage}</span>
                   </div>
 
-                  {/* Contextual Action Links Based on Specific Error Code */}
                   <div className="flex flex-wrap items-center gap-3 pl-6 pt-0.5">
                     {authErrorCode === 'INVALID_PASSWORD' && (
                       <button
@@ -1328,19 +1135,6 @@ export default function AuthPage() {
                         Resend link
                       </button>
                     )}
-
-                    {(authErrorCode === 'ACCOUNT_LOCKED' ||
-                      authErrorCode === 'RATE_LIMITED' ||
-                      authErrorCode === 'INVALID_PASSWORD') &&
-                      demoEnabled && (
-                        <button
-                          type="button"
-                          onClick={handleTryDemoAccount}
-                          className="font-bold text-rose-800 underline hover:text-rose-950"
-                        >
-                          Use demo account
-                        </button>
-                      )}
                   </div>
                 </div>
               )}
@@ -1358,46 +1152,20 @@ export default function AuthPage() {
               {forgotPasswordNotice && (
                 <div
                   role="status"
-                  className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl space-y-2.5 text-xs text-blue-900 font-medium"
+                  className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl flex items-start gap-2 text-xs text-blue-900 font-medium"
                 >
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#2F62F5] shrink-0 mt-0.5" />
-                    <span>{forgotPasswordNotice}</span>
-                  </div>
-
-                  {/* Instant Disposable Inbox Password Reset Form (No need to wait for Yopmail) */}
-                  {showInstantResetBox && (
-                    <div className="pt-1 pl-6 space-y-2">
-                      <input
-                        type="password"
-                        placeholder="Enter new password (6+ chars)"
-                        autoComplete="new-password"
-                        autoCapitalize="none"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        value={newResetPassword}
-                        onChange={(e) => setNewResetPassword(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl bg-white border border-blue-300 text-xs text-slate-900 outline-none focus:border-[#2F62F5]"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleInstantDisposablePasswordReset}
-                        className="px-3.5 py-1.5 rounded-xl bg-[#2F62F5] text-white font-bold text-xs hover:bg-blue-700 transition"
-                      >
-                        Set new password
-                      </button>
-                    </div>
-                  )}
+                  <CheckCircle2 className="w-4 h-4 text-[#2F62F5] shrink-0 mt-0.5" />
+                  <span>{forgotPasswordNotice}</span>
                 </div>
               )}
 
-              {testOtpNotice && (
+              {otpNotice && (
                 <div
                   role="status"
                   className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-2 text-xs text-amber-900 font-medium"
                 >
                   <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <span>{testOtpNotice}</span>
+                  <span>{otpNotice}</span>
                 </div>
               )}
 
@@ -1407,97 +1175,6 @@ export default function AuthPage() {
                 onSubmit={channel === 'email' ? handleEmailAuth : handlePhoneAuth}
                 className="space-y-4"
               >
-                {/* Identity Fields (Sign Up only) */}
-                {authMode === 'signup' && (
-                  <div className="space-y-3.5">
-                    <div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label
-                            htmlFor="first-name-input"
-                            className="block text-xs font-bold text-slate-700 mb-1.5"
-                          >
-                            First name <span className="text-rose-600">*</span>
-                          </label>
-                          <input
-                            id="first-name-input"
-                            type="text"
-                            autoComplete="given-name"
-                            placeholder="Sarah"
-                            value={firstName}
-                            onChange={(e) => {
-                              setFirstName(e.target.value);
-                              clearAllErrorsOnTyping();
-                            }}
-                            className="w-full px-3.5 py-2.5 bg-slate-50/70 focus:bg-white rounded-xl border border-slate-300 text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#2F62F5]/20 focus:border-[#2F62F5] transition"
-                          />
-                        </div>
-
-                        <div>
-                          <label
-                            htmlFor="last-name-input"
-                            className="block text-xs font-bold text-slate-700 mb-1.5"
-                          >
-                            Last name <span className="text-rose-600">*</span>
-                          </label>
-                          <input
-                            id="last-name-input"
-                            type="text"
-                            autoComplete="family-name"
-                            placeholder="Jenkins"
-                            value={lastName}
-                            onChange={(e) => {
-                              setLastName(e.target.value);
-                              clearAllErrorsOnTyping();
-                            }}
-                            className="w-full px-3.5 py-2.5 bg-slate-50/70 focus:bg-white rounded-xl border border-slate-300 text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#2F62F5]/20 focus:border-[#2F62F5] transition"
-                          />
-                        </div>
-                      </div>
-                      {nameError && (
-                        <p className="mt-1.5 text-xs font-medium text-rose-600 flex items-center gap-1">
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                          <span>{nameError}</span>
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label
-                          htmlFor="dob-input"
-                          className="block text-xs font-bold text-slate-700"
-                        >
-                          Date of birth{' '}
-                          <span className="text-slate-500 font-normal">(For adults 18+)</span>{' '}
-                          <span className="text-rose-600">*</span>
-                        </label>
-                        {dob && isAdult && (
-                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            18+ verified
-                          </span>
-                        )}
-                      </div>
-                      <input
-                        id="dob-input"
-                        type="date"
-                        value={dob}
-                        onChange={(e) => {
-                          setDob(e.target.value);
-                          clearAllErrorsOnTyping();
-                        }}
-                        className="w-full px-3.5 py-2.5 bg-slate-50/70 focus:bg-white rounded-xl border border-slate-300 text-sm font-medium text-slate-900 outline-none focus:ring-2 focus:ring-[#2F62F5]/20 focus:border-[#2F62F5] tabular-nums transition"
-                      />
-                      {dobError && (
-                        <p className="mt-1.5 text-xs font-medium text-rose-600 flex items-center gap-1">
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                          <span>{dobError}</span>
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
                 {/* Email Channel Inputs */}
                 {channel === 'email' && (
                   <div className="space-y-3.5">
@@ -1759,10 +1436,40 @@ export default function AuthPage() {
                   </div>
                 )}
 
+                {/* Sign Up Only: "I'm 18 or older" Checkbox */}
+                {authMode === 'signup' && (
+                  <div>
+                    <label
+                      htmlFor="adult-confirm-checkbox"
+                      className="flex items-center gap-2.5 cursor-pointer select-none"
+                    >
+                      <input
+                        id="adult-confirm-checkbox"
+                        type="checkbox"
+                        checked={isAdultConfirmed}
+                        onChange={(e) => {
+                          setIsAdultConfirmed(e.target.checked);
+                          if (adultError) setAdultError(null);
+                        }}
+                        className="w-4 h-4 rounded border-slate-300 text-[#2F62F5] focus:ring-[#2F62F5]"
+                      />
+                      <span className="text-xs font-semibold text-slate-700">
+                        I&apos;m 18 or older <span className="text-rose-600">*</span>
+                      </span>
+                    </label>
+                    {adultError && (
+                      <p className="mt-1.5 text-xs font-medium text-rose-600 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{adultError}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Primary Submit Action Button */}
                 <button
                   type="submit"
-                  disabled={loading || demoLoading}
+                  disabled={loading}
                   className="w-full py-3.5 px-4 rounded-2xl bg-[#2F62F5] hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-sm transition-all shadow-[0_4px_14px_rgba(47,98,245,0.28)] tap-press flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F62F5] focus-visible:ring-offset-2"
                 >
                   {loading && <RefreshCw className="w-4 h-4 animate-spin" />}
@@ -1802,100 +1509,6 @@ export default function AuthPage() {
               </form>
 
               {/* ===================================================================== */}
-              {/* STEP 3: Collapsible "Reviewer login" Credentials Fallback Box         */}
-              {/* ===================================================================== */}
-              {demoEnabled && demoCreds && (
-                <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 overflow-hidden text-xs">
-                  <button
-                    type="button"
-                    aria-expanded={reviewerBoxOpen}
-                    onClick={() => setReviewerBoxOpen((prev) => !prev)}
-                    className="w-full px-3.5 py-2.5 flex items-center justify-between text-slate-700 hover:text-slate-900 font-bold transition"
-                  >
-                    <span className="inline-flex items-center gap-1.5">
-                      <KeyRound className="w-3.5 h-3.5 text-[#2F62F5]" />
-                      <span>Reviewer login (email &amp; password fallback)</span>
-                    </span>
-                    <ChevronDown
-                      className={`w-4 h-4 text-slate-400 transition-transform duration-150 ${
-                        reviewerBoxOpen ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </button>
-
-                  {reviewerBoxOpen && (
-                    <div className="px-3.5 pb-3.5 pt-1 border-t border-slate-200/70 space-y-2.5">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
-                          <div className="min-w-0 pr-2">
-                            <span className="text-[10px] font-bold text-slate-400 block">
-                              Demo email
-                            </span>
-                            <span className="font-mono font-semibold text-slate-800 truncate block">
-                              {demoCreds.email}
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyReviewerField('email', demoCreds.email)}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] shrink-0 transition"
-                          >
-                            {copiedField === 'email' ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-600" />
-                                <span>Copied</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3 h-3" />
-                                <span>Copy</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-
-                        <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
-                          <div className="min-w-0 pr-2">
-                            <span className="text-[10px] font-bold text-slate-400 block">
-                              Demo password
-                            </span>
-                            <span className="font-mono font-semibold text-slate-800 truncate block">
-                              {demoCreds.password}
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyReviewerField('password', demoCreds.password)}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] shrink-0 transition"
-                          >
-                            {copiedField === 'password' ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-600" />
-                                <span>Copied</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3 h-3" />
-                                <span>Copy</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={handleAutofillReviewer}
-                        className="w-full py-2 px-3 rounded-xl bg-white hover:bg-blue-50 border border-[#C2D6FF] text-[#2F62F5] font-extrabold text-xs transition tap-press"
-                      >
-                        Autofill both fields
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ===================================================================== */}
               {/* TRUST & PRIVACY FOOTER (3 Visible Trust Badges + Medical Disclaimer)  */}
               {/* ===================================================================== */}
               <div className="pt-4 border-t border-slate-200/80 space-y-3">
@@ -1903,7 +1516,7 @@ export default function AuthPage() {
                   <div className="flex flex-col items-center gap-1 p-2 rounded-xl bg-slate-50 border border-slate-200/70">
                     <Lock className="w-3.5 h-3.5 text-[#2F62F5]" />
                     <span className="text-[11px] font-bold text-slate-700 leading-tight">
-                      Encrypted end to end
+                      Encrypted in transit and at rest
                     </span>
                   </div>
                   <div className="flex flex-col items-center gap-1 p-2 rounded-xl bg-slate-50 border border-slate-200/70">
@@ -2082,7 +1695,7 @@ export default function AuthPage() {
                 <p className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <span>
-                    <strong className="text-slate-900">Encrypted end to end:</strong> Your uploaded lab reports and health metrics are stored securely for your personal review.
+                    <strong className="text-slate-900">Encrypted in transit and at rest:</strong> Your uploaded lab reports and health metrics are transmitted over TLS and stored securely for your personal review.
                   </span>
                 </p>
                 <p className="flex items-start gap-2">

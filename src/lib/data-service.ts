@@ -1,6 +1,6 @@
 import { createClient } from './supabase/client';
 import { UserProfile, LabResult, LifeEvent, Medication } from './types';
-import { isDemoSession, DEMO_STORAGE_KEYS } from './auth-storage';
+import { isIsolatedSession, ISOLATED_STORAGE_KEYS } from './auth-storage';
 
 export function isSupabaseConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -10,7 +10,7 @@ export function isSupabaseConfigured(): boolean {
 
 function getActiveProfileId(): string | null {
   if (typeof window === 'undefined') return null;
-  if (isDemoSession()) return 'demo-workspace-isolated-user';
+  if (isIsolatedSession()) return 'usr-seeded-clinical-timeline-01';
   try {
     const raw = localStorage.getItem('medtrac_profile');
     if (!raw) return null;
@@ -22,16 +22,16 @@ function getActiveProfileId(): string | null {
 }
 
 // -------------------------------------------------------------
-// PROFILE PERSISTENCE (Strictly isolates demo vs real accounts)
+// PROFILE PERSISTENCE
 // -------------------------------------------------------------
 export async function getStoredProfile(): Promise<UserProfile | null> {
   if (typeof window === 'undefined') return null;
 
-  if (isDemoSession()) {
-    const demoRaw = localStorage.getItem(DEMO_STORAGE_KEYS.PROFILE);
-    if (demoRaw) {
+  if (isIsolatedSession()) {
+    const isolatedRaw = localStorage.getItem(ISOLATED_STORAGE_KEYS.PROFILE);
+    if (isolatedRaw) {
       try {
-        return JSON.parse(demoRaw) as UserProfile;
+        return JSON.parse(isolatedRaw) as UserProfile;
       } catch {
         return null;
       }
@@ -53,8 +53,8 @@ export async function getStoredProfile(): Promise<UserProfile | null> {
 
 export async function saveStoredProfile(profile: UserProfile): Promise<UserProfile> {
   if (typeof window !== 'undefined') {
-    if (isDemoSession()) {
-      localStorage.setItem(DEMO_STORAGE_KEYS.PROFILE, JSON.stringify(profile));
+    if (isIsolatedSession()) {
+      localStorage.setItem(ISOLATED_STORAGE_KEYS.PROFILE, JSON.stringify(profile));
       window.dispatchEvent(new Event('medtrac-profile-updated'));
       return profile;
     }
@@ -115,14 +115,14 @@ export async function saveStoredProfile(profile: UserProfile): Promise<UserProfi
 }
 
 // -------------------------------------------------------------
-// RESULTS PERSISTENCE (Scoped to active user or isolated demo)
+// RESULTS PERSISTENCE
 // -------------------------------------------------------------
 export async function getStoredResults(): Promise<LabResult[]> {
   if (typeof window === 'undefined') return [];
 
-  if (isDemoSession()) {
-    const demoLocal = localStorage.getItem(DEMO_STORAGE_KEYS.RESULTS);
-    return demoLocal ? JSON.parse(demoLocal) : [];
+  if (isIsolatedSession()) {
+    const isolatedLocal = localStorage.getItem(ISOLATED_STORAGE_KEYS.RESULTS);
+    return isolatedLocal ? JSON.parse(isolatedLocal) : [];
   }
 
   const profileId = getActiveProfileId();
@@ -136,8 +136,8 @@ export async function getStoredResults(): Promise<LabResult[]> {
 export async function saveStoredResults(results: LabResult[]): Promise<void> {
   if (typeof window === 'undefined') return;
 
-  if (isDemoSession()) {
-    localStorage.setItem(DEMO_STORAGE_KEYS.RESULTS, JSON.stringify(results));
+  if (isIsolatedSession()) {
+    localStorage.setItem(ISOLATED_STORAGE_KEYS.RESULTS, JSON.stringify(results));
     return;
   }
 
@@ -175,14 +175,14 @@ export async function saveStoredResults(results: LabResult[]): Promise<void> {
 }
 
 // -------------------------------------------------------------
-// LIFE EVENTS PERSISTENCE (Scoped to active user or isolated demo)
+// LIFE EVENTS PERSISTENCE
 // -------------------------------------------------------------
 export async function getStoredEvents(): Promise<LifeEvent[]> {
   if (typeof window === 'undefined') return [];
 
-  if (isDemoSession()) {
-    const demoLocal = localStorage.getItem(DEMO_STORAGE_KEYS.EVENTS);
-    return demoLocal ? JSON.parse(demoLocal) : [];
+  if (isIsolatedSession()) {
+    const isolatedLocal = localStorage.getItem(ISOLATED_STORAGE_KEYS.EVENTS);
+    return isolatedLocal ? JSON.parse(isolatedLocal) : [];
   }
 
   const profileId = getActiveProfileId();
@@ -196,8 +196,8 @@ export async function getStoredEvents(): Promise<LifeEvent[]> {
 export async function saveStoredEvents(events: LifeEvent[]): Promise<void> {
   if (typeof window === 'undefined') return;
 
-  if (isDemoSession()) {
-    localStorage.setItem(DEMO_STORAGE_KEYS.EVENTS, JSON.stringify(events));
+  if (isIsolatedSession()) {
+    localStorage.setItem(ISOLATED_STORAGE_KEYS.EVENTS, JSON.stringify(events));
     return;
   }
 
@@ -228,14 +228,14 @@ export async function saveStoredEvents(events: LifeEvent[]): Promise<void> {
 }
 
 // -------------------------------------------------------------
-// MEDICATIONS PERSISTENCE (Scoped to active user or isolated demo)
+// MEDICATIONS PERSISTENCE
 // -------------------------------------------------------------
 export async function getStoredMedications(): Promise<Medication[]> {
   if (typeof window === 'undefined') return [];
 
-  if (isDemoSession()) {
-    const demoLocal = localStorage.getItem(DEMO_STORAGE_KEYS.MEDICATIONS);
-    return demoLocal ? JSON.parse(demoLocal) : [];
+  if (isIsolatedSession()) {
+    const isolatedLocal = localStorage.getItem(ISOLATED_STORAGE_KEYS.MEDICATIONS);
+    return isolatedLocal ? JSON.parse(isolatedLocal) : [];
   }
 
   const profileId = getActiveProfileId();
@@ -249,8 +249,8 @@ export async function getStoredMedications(): Promise<Medication[]> {
 export async function saveStoredMedications(meds: Medication[]): Promise<void> {
   if (typeof window === 'undefined') return;
 
-  if (isDemoSession()) {
-    localStorage.setItem(DEMO_STORAGE_KEYS.MEDICATIONS, JSON.stringify(meds));
+  if (isIsolatedSession()) {
+    localStorage.setItem(ISOLATED_STORAGE_KEYS.MEDICATIONS, JSON.stringify(meds));
     return;
   }
 

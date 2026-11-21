@@ -28,8 +28,7 @@ import {
   getStoredEvents,
   getStoredMedications,
 } from '@/lib/data-service';
-import { isSessionAuthenticated, isDemoSession, DEMO_STORAGE_KEYS } from '@/lib/auth-storage';
-import { DEMO_SEED_BRIEF } from '@/lib/demo-seed';
+import { isSessionAuthenticated, isIsolatedSession, ISOLATED_STORAGE_KEYS } from '@/lib/auth-storage';
 
 export default function DoctorBriefPage() {
   const router = useRouter();
@@ -84,38 +83,43 @@ export default function DoctorBriefPage() {
     const userHasData = results.length > 0 || events.length > 0 || medications.length > 0;
     setHasRecords(userHasData);
 
-    // If in isolated demo mode, use the pre-generated demo brief tailored to the selected specialization
-    if (isDemoSession()) {
-      const demoBrief: DoctorBriefContent = {
-        ...DEMO_SEED_BRIEF,
-        doctor_type: selectedType,
-        patient_summary: {
-          name: profile.full_name || DEMO_SEED_BRIEF.patient_summary.name,
-          conditions: Array.isArray(profile.conditions)
-            ? profile.conditions
-            : DEMO_SEED_BRIEF.patient_summary.conditions,
-        },
-        current_medications: medications.map((m) => ({
-          name: m.name,
-          dosage: m.dosage,
-          frequency: m.frequency,
-          started: m.start_date,
-        })),
-        recent_events: events.map((e) => ({
-          title: e.title,
-          date: e.event_date,
-          category: e.category,
-        })),
-        last_visit_date: lastVisitDate || DEMO_SEED_BRIEF.last_visit_date,
-      };
-      setBrief(demoBrief);
-      localStorage.setItem(
-        `${DEMO_STORAGE_KEYS.BRIEF_PREFIX}${selectedType}`,
-        JSON.stringify(demoBrief)
-      );
-      setLoading(false);
-      setShowRegenerateConfirm(false);
-      return;
+    if (isIsolatedSession()) {
+      const cachedIsolated =
+        localStorage.getItem(`${ISOLATED_STORAGE_KEYS.BRIEF_PREFIX}${selectedType}`) ||
+        localStorage.getItem(`${ISOLATED_STORAGE_KEYS.BRIEF_PREFIX}Specialist`);
+      if (cachedIsolated) {
+        try {
+          const parsed = JSON.parse(cachedIsolated) as DoctorBriefContent;
+          const adapted: DoctorBriefContent = {
+            ...parsed,
+            doctor_type: selectedType,
+            patient_summary: {
+              name: profile.full_name || parsed.patient_summary.name,
+              conditions: Array.isArray(profile.conditions)
+                ? profile.conditions
+                : parsed.patient_summary.conditions,
+            },
+            current_medications: medications.map((m) => ({
+              name: m.name,
+              dosage: m.dosage,
+              frequency: m.frequency,
+              started: m.start_date,
+            })),
+            recent_events: events.map((e) => ({
+              title: e.title,
+              date: e.event_date,
+              category: e.category,
+            })),
+            last_visit_date: lastVisitDate || parsed.last_visit_date,
+          };
+          setBrief(adapted);
+          setLoading(false);
+          setShowRegenerateConfirm(false);
+          return;
+        } catch {
+          // fall through
+        }
+      }
     }
 
     // If first-time user has no uploaded reports, medications, or events, do not populate any dummy brief data
