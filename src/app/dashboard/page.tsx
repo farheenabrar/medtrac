@@ -109,13 +109,14 @@ export default function DashboardPage() {
     }
   };
 
-  // The 8 key tracked biomarkers (HbA1c, Fasting Glucose, Lipids, Vitamin D, TSH, Creatinine)
+  // The 9 key tracked biomarkers (HbA1c, Fasting Glucose, Total/LDL/HDL Cholesterol, Triglycerides, Vitamin D, TSH, Creatinine)
   const testKeys: CanonicalKey[] = [
     'hba1c',
     'fasting_glucose',
-    'triglycerides',
+    'total_cholesterol',
     'ldl',
     'hdl',
+    'triglycerides',
     'vitamin_d',
     'tsh',
     'creatinine',
@@ -162,6 +163,7 @@ export default function DashboardPage() {
       previous: formattedPrevious,
       change: diff !== null ? Math.round(diff * 100) / 100 : null,
       isAbnormal: isAbnormal(key, formattedLatest.value, unitSystem),
+      isSample: Boolean(latest.is_sample),
       rawDetails: `${latest.raw_value} ${latest.raw_unit} (${latest.lab_country || 'Lab'})`,
     };
   };
@@ -372,9 +374,16 @@ export default function DashboardPage() {
               }`}
             >
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">
-                  {metric.config.name}
-                </span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">
+                    {metric.config.name}
+                  </span>
+                  {metric.isSample && (
+                    <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[9px] font-black uppercase tracking-wide">
+                      Sample
+                    </span>
+                  )}
+                </div>
                 {metric.latest && (
                   <span
                     className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide border ${

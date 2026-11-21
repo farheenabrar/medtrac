@@ -41,10 +41,10 @@ function getUtcDateString(): string {
 export function initializeIsolatedWorkspace(payload: {
   seedDate: string;
   profile: UserProfile;
-  results: LabResult[];
-  medications: Medication[];
-  events: LifeEvent[];
-  brief: DoctorBriefContent;
+  results?: LabResult[];
+  medications?: Medication[];
+  events?: LifeEvent[];
+  brief?: DoctorBriefContent;
 }): void {
   if (typeof window === 'undefined') return;
   try {
@@ -59,13 +59,24 @@ export function initializeIsolatedWorkspace(payload: {
     localStorage.setItem(ISOLATED_SESSION_KEY, JSON.stringify(meta));
 
     localStorage.setItem(ISOLATED_STORAGE_KEYS.PROFILE, JSON.stringify(payload.profile));
-    localStorage.setItem(ISOLATED_STORAGE_KEYS.RESULTS, JSON.stringify(payload.results));
-    localStorage.setItem(ISOLATED_STORAGE_KEYS.MEDICATIONS, JSON.stringify(payload.medications));
-    localStorage.setItem(ISOLATED_STORAGE_KEYS.EVENTS, JSON.stringify(payload.events));
+    localStorage.setItem(ISOLATED_STORAGE_KEYS.RESULTS, JSON.stringify(payload.results || []));
     localStorage.setItem(
-      `${ISOLATED_STORAGE_KEYS.BRIEF_PREFIX}Specialist`,
-      JSON.stringify(payload.brief)
+      ISOLATED_STORAGE_KEYS.MEDICATIONS,
+      JSON.stringify(payload.medications || [])
     );
+    localStorage.setItem(ISOLATED_STORAGE_KEYS.EVENTS, JSON.stringify(payload.events || []));
+
+    Object.keys(localStorage).forEach((k) => {
+      if (k.startsWith(ISOLATED_STORAGE_KEYS.BRIEF_PREFIX)) {
+        localStorage.removeItem(k);
+      }
+    });
+    if (payload.brief) {
+      localStorage.setItem(
+        `${ISOLATED_STORAGE_KEYS.BRIEF_PREFIX}Specialist`,
+        JSON.stringify(payload.brief)
+      );
+    }
 
     sessionStorage.setItem(SESSION_AUTH_KEY, 'true');
     localStorage.setItem(SESSION_AUTH_KEY, 'true');
@@ -126,6 +137,7 @@ export function setSessionAuthenticated(isAuthenticated: boolean): void {
       sessionStorage.removeItem(SESSION_AUTH_KEY);
       localStorage.removeItem(SESSION_AUTH_KEY);
       clearIsolatedWorkspace();
+      fetch('/api/auth/me', { method: 'DELETE' }).catch(() => {});
     }
     window.dispatchEvent(new Event('medtrac-auth-changed'));
   } catch (e) {

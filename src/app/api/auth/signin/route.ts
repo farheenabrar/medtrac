@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   verifyConfiguredSpecialCredentials,
-  getSeededAccountDataset,
+  getInitialEmptyIsolatedProfile,
   hashPasswordSha256,
+  createServerSessionToken,
+  setServerSamplesLoaded,
+  SESSION_COOKIE_NAME,
 } from '@/lib/server/account-seed';
 
 interface AttemptRecord {
@@ -99,26 +102,38 @@ export async function POST(req: NextRequest) {
       }
 
       // Server-side only log
-      console.info('[SERVER_AUTH_NOTICE] Special account authenticated', {
+      console.info('[SERVER_AUTH_NOTICE] Special account authenticated (clean empty state)', {
         email: normalizedEmail,
         ip: clientIp,
         timestamp: new Date(now).toISOString(),
       });
 
-      const dataset = getSeededAccountDataset(normalizedEmail);
-      return NextResponse.json(
+      // Reset sample loaded state on fresh sign-in so the reviewer starts in a clean empty app
+      setServerSamplesLoaded(false);
+      const initialEmpty = getInitialEmptyIsolatedProfile(normalizedEmail);
+      const sessionToken = createServerSessionToken(true);
+
+      const res = NextResponse.json(
         {
           success: true,
           isolatedWorkspace: true,
-          seedDate: dataset.seedDate,
-          profile: dataset.profile,
-          results: dataset.results,
-          medications: dataset.medications,
-          events: dataset.events,
-          brief: dataset.brief,
+          seedDate: initialEmpty.seedDate,
+          profile: initialEmpty.profile,
+          results: [],
+          medications: [],
+          events: [],
         },
         { status: 200 }
       );
+
+      res.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 24 * 60 * 60,
+      });
+
+      return res;
     }
 
     // Perform a dummy hash calculation so non-special accounts share identical CPU timing
@@ -197,13 +212,23 @@ export async function POST(req: NextRequest) {
 
     accountAttemptStore.delete(normalizedEmail);
 
-    return NextResponse.json(
+    const normalSessionToken = createServerSessionToken(false);
+    const res = NextResponse.json(
       {
         success: true,
         isolatedWorkspace: false,
       },
       { status: 200 }
     );
+
+    res.cookies.set(SESSION_COOKIE_NAME, normalSessionToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 24 * 60 * 60,
+    });
+
+    return res;
   } catch (err: any) {
     console.error('[AUTH_SIGNIN_ERROR]', err);
     return NextResponse.json(

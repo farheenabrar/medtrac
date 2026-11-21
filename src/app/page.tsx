@@ -592,7 +592,7 @@ export default function AuthPage() {
             events: data.events || [],
             brief: data.brief,
           });
-          router.push('/dashboard');
+          router.push('/upload');
           return;
         }
 

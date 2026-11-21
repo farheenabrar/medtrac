@@ -71,6 +71,20 @@ export const CANONICAL_TESTS: Record<CanonicalKey, TestConfig> = {
       'triglyceride',
     ],
   },
+  total_cholesterol: {
+    name: 'Total Cholesterol',
+    key: 'total_cholesterol',
+    defaultMgUnit: 'mg/dL',
+    defaultMmolUnit: 'mmol/L',
+    normalRangeMg: { min: 120, max: 199 },
+    normalRangeMmol: { min: 3.1, max: 5.15 },
+    aliases: [
+      'total cholesterol',
+      'cholesterol, total',
+      'serum cholesterol',
+      'cholesterol total',
+    ],
+  },
   hdl: {
     name: 'HDL Cholesterol',
     key: 'hdl',
@@ -189,6 +203,7 @@ export function convertValue(
       }
       return roundToTwo(value);
     }
+    case 'total_cholesterol':
     case 'hdl':
     case 'ldl': {
       if (cleanFrom.includes('mg') && cleanTo.includes('mmol')) {

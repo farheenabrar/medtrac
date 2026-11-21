@@ -2,6 +2,7 @@ export type CanonicalKey =
   | 'hba1c'
   | 'fasting_glucose'
   | 'triglycerides'
+  | 'total_cholesterol'
   | 'hdl'
   | 'ldl'
   | 'vitamin_d'
@@ -63,6 +64,9 @@ export interface LabResult {
   lab_name?: string;
   lab_country?: string;
   is_flagged: boolean;
+  is_sample?: boolean;
+  source_file?: string;
+  sample_report_text?: string;
   confidence_score?: number;
   created_at?: string;
 }

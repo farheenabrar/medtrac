@@ -17,11 +17,9 @@ Upload a **2025 Mumbai report** in $\text{mg/dL}$ and a **2026 Dubai report** in
 
 ## 📱 The 5 Core Mobile Screens
 
-1. **Sign Up & Setup (`/`)**:
-   - Supabase Auth: Google OAuth, Email Magic Link, or Instant Demo preview.
-   - Adult qualification enforcement ($\ge 18$ years old).
-   - Preferred initial unit system ($\text{mg/dL}$ vs $\text{mmol/L}$).
-   - Conditions checklist with custom entry and "None / General Metabolic Health".
+1. **Sign Up & Sign In (`/`)**:
+   - Two-column value proposition and authentication screen: Google OAuth, Email & Password, or Mobile Phone OTP.
+   - Adult qualification enforcement ($\ge 18$ years old) and post-signup onboarding (`/feed-filters`).
    - Seamless redirect to `/dashboard` for returning users with stored records.
 2. **Upload & Review (`/upload`)**:
    - Ingestion: Multi-page PDFs, PNG, JPEG, and direct phone-camera capture (`capture="environment"`).
@@ -29,9 +27,9 @@ Upload a **2025 Mumbai report** in $\text{mg/dL}$ and a **2026 Dubai report** in
    - Verification view (full table on desktop, responsive cards on mobile).
    - Amber alert highlight for low OCR confidence readings ($< 85\%$).
    - Side-by-side **Inspect Source Document** modal.
-   - Built-in *"Load Mumbai & Dubai Reports"* 1-click test button.
+   - Server-gated **"Sample reports"** option (`POST /api/reviewer/sample-reports`) and **"Clear sample reports"** reset (`DELETE /api/reviewer/sample-reports`), rendered only when `/api/auth/me` verifies `is_reviewer = true`.
 3. **Dashboard & Trajectory (`/dashboard`)**:
-   - 5 key metabolic cards: HbA1c, Fasting Glucose, Triglycerides, HDL, LDL.
+   - 9 key metabolic cards: HbA1c, Fasting Glucose, Total Cholesterol, LDL, HDL, Triglycerides, Vitamin D, TSH, Creatinine.
    - Card stats: Latest result, absolute difference ($V_{\text{latest}} - V_{\text{prev}}$ subtraction), and normal/flagged status.
    - Recharts interactive trajectory with dynamic reference band matching current units.
    - Milestone pins marking lifestyle events and medication changes.
@@ -114,9 +112,9 @@ node test-units.mjs
    ```
 2. Open [http://localhost:3000](http://localhost:3000) on your desktop or mobile browser.
 3. Test Journey:
-   - **Step 1:** Tap **"Demo Patient"** or enter your name, date of birth ($18+$), and select conditions. Click **"Continue to Upload Reports"**.
-   - **Step 2:** Click **"Load Mumbai & Dubai Reports"** (or upload your own PDF/photo). Inspect values, see the low-confidence amber badge, tap **"Inspect"** to verify source records, and click **"Confirm & View Dashboard"**.
-   - **Step 3:** Notice both Mumbai ($235\text{ mg/dL}$) and Dubai ($1.82\text{ mmol/L}$) on the Triglycerides trajectory with the *"Started Metformin"* milestone between them! Toggle units between $\text{mg/dL}$ and $\text{mmol/L}$ to see the chart and reference band convert simultaneously.
+   - **Step 1:** Create an account or sign in on `/`.
+   - **Step 2:** On `/upload`, upload your own lab report PDF/photo (or, if signed in with a server-authorized reviewer account, click **"Sample reports"** to load 10 example lab reports spanning Mar 2024 – Sep 2026). Inspect values, tap **"Inspect"** to verify source records, and click **"Confirm & View Dashboard"**.
+   - **Step 3:** Explore the longitudinal biomarker trajectories (`HbA1c` from `6.4%` down to `5.5%`, `LDL` slightly above target at `106 mg/dL`, plus glucose, total/HDL cholesterol, triglycerides, vitamin D, TSH, and creatinine) and toggle units between $\text{mg/dL}$ and $\text{mmol/L}$ to see the chart and reference band convert simultaneously.
    - **Step 4:** Click **"Doctor Brief"**, switch between GP, Endocrinologist, and Nutritionist tabs, edit any text or questions, and click **"Share 24h Link & QR Code"**.
    - **Step 5:** Open the generated preview link or scan the QR code to experience the unauthenticated 60-second Doctor View.
 

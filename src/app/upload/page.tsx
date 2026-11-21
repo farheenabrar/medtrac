@@ -6,27 +6,33 @@ import {
   UploadCloud,
   FileText,
   AlertTriangle,
-  Check,
   Trash2,
   RefreshCw,
   ArrowRight,
   Sparkles,
   Camera,
   CheckCircle2,
-  Calendar,
   Eye,
   X,
   Building2,
-  Globe,
-  HelpCircle,
+  Loader2,
+  RotateCcw,
 } from 'lucide-react';
 import { CanonicalKey, LabResult } from '@/lib/types';
 import { CANONICAL_TESTS, matchCanonicalKey, convertValue } from '@/lib/units';
-import { saveStoredResults, getStoredResults } from '@/lib/data-service';
-import { isSessionAuthenticated } from '@/lib/auth-storage';
+import {
+  saveStoredResults,
+  getStoredResults,
+  saveStoredMedications,
+  saveStoredEvents,
+  saveStoredProfile,
+  getStoredProfile,
+} from '@/lib/data-service';
+import { isSessionAuthenticated, ISOLATED_STORAGE_KEYS } from '@/lib/auth-storage';
 
 interface ReviewRow {
   id: string;
+  document_id?: string;
   raw_test_name: string;
   canonical_key: CanonicalKey;
   raw_value: number;
@@ -37,6 +43,8 @@ interface ReviewRow {
   lab_country: string;
   confidence_score: number;
   source_file?: string;
+  sample_report_text?: string;
+  is_sample?: boolean;
   status?: 'approved' | 'disapproved';
 }
 
@@ -51,6 +59,15 @@ export default function UploadPage() {
   const [inspectModalRow, setInspectModalRow] = useState<ReviewRow | null>(null);
   const [authorized, setAuthorized] = useState(false);
 
+  // Server-decided reviewer state (never checked by email on the client)
+  const [isReviewer, setIsReviewer] = useState(false);
+  const [sampleLoading, setSampleLoading] = useState(false);
+  const [sampleClearing, setSampleClearing] = useState(false);
+  const [sampleFeedback, setSampleFeedback] = useState<{
+    type: 'added' | 'already' | 'cleared' | 'error';
+    text: string;
+  } | null>(null);
+
   useEffect(() => {
     if (!isSessionAuthenticated()) {
       router.replace('/');
@@ -60,13 +77,27 @@ export default function UploadPage() {
     router.prefetch('/dashboard');
     router.prefetch('/brief');
 
+    // Ask the server if the current session belongs to a reviewer
+    async function checkServerSession() {
+      try {
+        const res = await fetch('/api/auth/me', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          setIsReviewer(Boolean(data.is_reviewer));
+        }
+      } catch {
+        setIsReviewer(false);
+      }
+    }
+
     // Check if results were already stored in database / local storage
     async function checkExisting() {
       const existing = await getStoredResults();
-      if (existing && existing.length > 0 && rows.length === 0) {
+      if (existing && existing.length > 0) {
         setRows(
           existing.map((r) => ({
             id: r.id || `res-${Date.now()}-${Math.random()}`,
+            document_id: r.document_id,
             raw_test_name: r.raw_test_name,
             canonical_key: r.canonical_key,
             raw_value: r.raw_value,
@@ -76,17 +107,176 @@ export default function UploadPage() {
             lab_name: r.lab_name || 'Laboratory',
             lab_country: r.lab_country || '',
             confidence_score: r.confidence_score ?? 0.95,
+            source_file: r.source_file,
+            sample_report_text: r.sample_report_text,
+            is_sample: Boolean(r.is_sample),
           }))
         );
       }
     }
+
+    checkServerSession();
     checkExisting();
   }, [router]);
+
+  const hasSampleRows = rows.some((r) => r.is_sample === true);
+
+  const handleLoadSampleReports = async () => {
+    if (sampleLoading || sampleClearing) return;
+    setSampleLoading(true);
+    setSampleFeedback(null);
+
+    try {
+      const res = await fetch('/api/reviewer/sample-reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alreadyHasSamples: hasSampleRows }),
+      });
+
+      if (!res.ok) {
+        setSampleFeedback({
+          type: 'error',
+          text: 'Unable to load sample reports for this account.',
+        });
+        setSampleLoading(false);
+        return;
+      }
+
+      const data = await res.json();
+      const sampleResults: LabResult[] = Array.isArray(data.results) ? data.results : [];
+
+      // Keep any non-sample custom uploads the reviewer made, and idempotently set the sample set
+      const existingStored = await getStoredResults();
+      const customStored = existingStored.filter((r) => !r.is_sample);
+      const mergedStored: LabResult[] = [...customStored, ...sampleResults];
+
+      await saveStoredResults(mergedStored);
+
+      if (Array.isArray(data.medications)) {
+        await saveStoredMedications(data.medications);
+      }
+      if (Array.isArray(data.events)) {
+        await saveStoredEvents(data.events);
+      }
+      if (data.profile) {
+        await saveStoredProfile(data.profile);
+      }
+      if (data.brief && typeof window !== 'undefined') {
+        localStorage.setItem(
+          `${ISOLATED_STORAGE_KEYS.BRIEF_PREFIX}Specialist`,
+          JSON.stringify(data.brief)
+        );
+      }
+
+      setRows((prev) => {
+        const customRows = prev.filter((r) => !r.is_sample);
+        const mappedSampleRows: ReviewRow[] = sampleResults.map((r) => ({
+          id: r.id,
+          document_id: r.document_id,
+          raw_test_name: r.raw_test_name,
+          canonical_key: r.canonical_key,
+          raw_value: r.raw_value,
+          raw_unit: r.raw_unit,
+          raw_range: r.raw_range || '',
+          test_date: r.test_date,
+          lab_name: r.lab_name || 'Laboratory',
+          lab_country: r.lab_country || '',
+          confidence_score: r.confidence_score ?? 0.98,
+          source_file: r.source_file,
+          sample_report_text: r.sample_report_text,
+          is_sample: true,
+        }));
+        return [...customRows, ...mappedSampleRows];
+      });
+
+      if (hasSampleRows || data.alreadyLoaded) {
+        setSampleFeedback({
+          type: 'already',
+          text: 'Sample reports already loaded',
+        });
+      } else {
+        setSampleFeedback({
+          type: 'added',
+          text: 'Sample reports added',
+        });
+        // Navigate to the populated timeline after showing "Sample reports added" feedback
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 900);
+      }
+    } catch {
+      setSampleFeedback({
+        type: 'error',
+        text: 'Could not load sample reports right now. Please try again.',
+      });
+    } finally {
+      setSampleLoading(false);
+    }
+  };
+
+  const handleClearSampleReports = async () => {
+    if (sampleLoading || sampleClearing) return;
+    setSampleClearing(true);
+    setSampleFeedback(null);
+
+    try {
+      const res = await fetch('/api/reviewer/sample-reports', {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        setSampleFeedback({
+          type: 'error',
+          text: 'Unable to clear sample reports.',
+        });
+        setSampleClearing(false);
+        return;
+      }
+
+      // Preserve any custom files uploaded by the reviewer while clearing sample records
+      const existingStored = await getStoredResults();
+      const remainingCustom = existingStored.filter((r) => !r.is_sample);
+      await saveStoredResults(remainingCustom);
+      await saveStoredMedications([]);
+      await saveStoredEvents([]);
+
+      const currentProfile = await getStoredProfile();
+      if (currentProfile) {
+        await saveStoredProfile({
+          ...currentProfile,
+          conditions: [],
+        });
+      }
+
+      if (typeof window !== 'undefined') {
+        Object.keys(localStorage).forEach((k) => {
+          if (k.startsWith(ISOLATED_STORAGE_KEYS.BRIEF_PREFIX) || k.startsWith('medtrac_brief_')) {
+            localStorage.removeItem(k);
+          }
+        });
+      }
+
+      setRows((prev) => prev.filter((r) => !r.is_sample));
+      setSampleFeedback({
+        type: 'cleared',
+        text: 'Sample reports cleared',
+      });
+    } catch {
+      setSampleFeedback({
+        type: 'error',
+        text: 'Could not clear sample reports right now.',
+      });
+    } finally {
+      setSampleClearing(false);
+    }
+  };
 
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setExtracting(true);
-    setStatusMessage(`Uploading and analyzing ${files.length} document(s) in parallel with Gemini Flash...`);
+    setStatusMessage(
+      `Uploading and analyzing ${files.length} document(s) in parallel with Gemini Flash...`
+    );
 
     const uploads = Array.from(files);
     const newRows: ReviewRow[] = [];
@@ -124,6 +314,7 @@ export default function UploadPage() {
               lab_country: extracted.lab_country || 'General',
               confidence_score: r.confidence_score || 0.92,
               source_file: file.name,
+              is_sample: false,
             });
           });
         } catch (err: any) {
@@ -141,6 +332,7 @@ export default function UploadPage() {
             lab_country: 'Local',
             confidence_score: 0.8,
             source_file: file.name,
+            is_sample: false,
           });
         }
       })
@@ -176,6 +368,7 @@ export default function UploadPage() {
       return {
         id: r.id,
         user_id: 'active_user',
+        document_id: r.document_id,
         canonical_key: r.canonical_key,
         raw_test_name: r.raw_test_name,
         raw_value: r.raw_value,
@@ -188,6 +381,9 @@ export default function UploadPage() {
         lab_country: r.lab_country,
         is_flagged: r.confidence_score < 0.85,
         confidence_score: r.confidence_score,
+        is_sample: Boolean(r.is_sample),
+        source_file: r.source_file,
+        sample_report_text: r.sample_report_text,
       };
     });
 
@@ -249,7 +445,9 @@ export default function UploadPage() {
             )}
           </div>
           <h3 className="font-black text-slate-800 text-sm sm:text-base">
-            {extracting ? 'Analyzing Documents with Gemini Flash...' : 'Tap or drop lab report PDFs / photos here'}
+            {extracting
+              ? 'Analyzing Documents with Gemini Flash...'
+              : 'Tap or drop lab report PDFs / photos here'}
           </h3>
           <p className="text-[11px] text-slate-400 mt-1 font-medium">
             Supports multi-page PDFs, scans, and mobile photos up to 10MB each
@@ -280,6 +478,90 @@ export default function UploadPage() {
         </div>
       </div>
 
+      {/* Server-authorized secondary option: "Sample reports" (rendered ONLY when server says is_reviewer === true) */}
+      {isReviewer && (
+        <div
+          data-testid="sample-reports-panel"
+          className="rounded-3xl border border-blue-200/80 bg-gradient-to-r from-[#EEF3FF]/80 via-white to-[#EEF3FF]/50 p-4 sm:p-5 shadow-[0_2px_12px_rgba(37,99,235,0.05)] flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+        >
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-[0_4px_12px_rgba(37,99,235,0.2)]">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-black text-slate-900 text-sm">Sample reports</h3>
+                <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wide">
+                  10 Lab PDFs • Mar 2024 – Sep 2026
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5 font-medium">
+                Load example lab reports to see how Medtrac works.
+              </p>
+              {sampleFeedback && (
+                <div
+                  role="status"
+                  className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold ${
+                    sampleFeedback.type === 'added'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : sampleFeedback.type === 'already'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      : sampleFeedback.type === 'cleared'
+                      ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                      : 'bg-rose-50 text-rose-700 border border-rose-200'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span>{sampleFeedback.text}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5 sm:shrink-0">
+            <button
+              type="button"
+              onClick={handleLoadSampleReports}
+              disabled={sampleLoading || sampleClearing}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60 text-white font-bold text-xs shadow-xs transition tap-press min-h-[42px]"
+            >
+              {sampleLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Loading sample reports...</span>
+                </>
+              ) : (
+                <>
+                  <FileText className="w-4 h-4" />
+                  <span>Sample reports</span>
+                </>
+              )}
+            </button>
+
+            {hasSampleRows && (
+              <button
+                type="button"
+                onClick={handleClearSampleReports}
+                disabled={sampleLoading || sampleClearing}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-2xl border border-slate-300 bg-white hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 disabled:opacity-60 text-slate-700 font-bold text-xs transition tap-press min-h-[42px]"
+              >
+                {sampleClearing ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Clearing...</span>
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Clear sample reports</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Verification Container */}
       {rows.length === 0 ? (
         <div className="card-depth p-8 text-center space-y-2 bg-white rounded-3xl">
@@ -295,13 +577,18 @@ export default function UploadPage() {
           {/* Table Header Bar */}
           <div className="p-4 sm:p-5 bg-slate-50/80 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="font-black text-slate-900 text-sm sm:text-base">
                   Review lab results
                 </h2>
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full badge-optimal uppercase tracking-wide">
                   {rows.length} Ready
                 </span>
+                {hasSampleRows && (
+                  <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wide">
+                    Sample Set Loaded
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500 mt-0.5 font-medium">
                 Verify each extracted value below. Use the delete button to remove any unwanted result.
@@ -331,7 +618,7 @@ export default function UploadPage() {
                   <th className="py-3 px-4">Unit</th>
                   <th className="py-3 px-4">Lab Reference Range</th>
                   <th className="py-3 px-4">Date</th>
-                  <th className="py-3 px-4">Lab / Country</th>
+                  <th className="py-3 px-4">Lab / Source</th>
                   <th className="py-3 px-4 text-center">Inspect</th>
                   <th className="py-3 px-4 text-center">Action</th>
                 </tr>
@@ -346,14 +633,21 @@ export default function UploadPage() {
                         isLowConfidence ? 'bg-[#fffbeb]/60' : ''
                       }`}
                     >
-                      {/* Raw Test Name */}
+                      {/* Raw Test Name + Sample Badge */}
                       <td className="py-3 px-4">
-                        <input
-                          type="text"
-                          value={row.raw_test_name}
-                          onChange={(e) => updateRow(row.id, 'raw_test_name', e.target.value)}
-                          className="font-black text-slate-900 bg-transparent border-b border-transparent focus:border-blue-500 outline-none w-full"
-                        />
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={row.raw_test_name}
+                            onChange={(e) => updateRow(row.id, 'raw_test_name', e.target.value)}
+                            className="font-black text-slate-900 bg-transparent border-b border-transparent focus:border-blue-500 outline-none w-full"
+                          />
+                          {row.is_sample && (
+                            <span className="shrink-0 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-black uppercase tracking-wide">
+                              Sample
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Tracked Health Metric Selector */}
@@ -367,9 +661,13 @@ export default function UploadPage() {
                         >
                           <option value="hba1c">HbA1c</option>
                           <option value="fasting_glucose">Fasting Glucose</option>
+                          <option value="total_cholesterol">Total Cholesterol</option>
                           <option value="triglycerides">Triglycerides</option>
                           <option value="hdl">HDL Cholesterol</option>
                           <option value="ldl">LDL Cholesterol</option>
+                          <option value="vitamin_d">Vitamin D</option>
+                          <option value="tsh">TSH</option>
+                          <option value="creatinine">Creatinine</option>
                           <option value="other_untracked">Other / Untracked</option>
                         </select>
                       </td>
@@ -426,10 +724,12 @@ export default function UploadPage() {
                         />
                       </td>
 
-                      {/* Lab & Country */}
+                      {/* Lab & Attached PDF Source */}
                       <td className="py-3 px-4 text-slate-600">
                         <div className="font-bold text-slate-900">{row.lab_name}</div>
-                        <div className="text-[10px] text-slate-400 font-medium">{row.lab_country}</div>
+                        <div className="text-[10px] text-slate-400 font-medium">
+                          {row.source_file ? `${row.source_file} (${row.lab_country})` : row.lab_country}
+                        </div>
                       </td>
 
                       {/* Inspect Source Button */}
@@ -477,15 +777,22 @@ export default function UploadPage() {
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2.5">
-                    <div>
-                      <input
-                        type="text"
-                        value={row.raw_test_name}
-                        onChange={(e) => updateRow(row.id, 'raw_test_name', e.target.value)}
-                        className="font-black text-sm text-slate-900 bg-transparent outline-none w-full"
-                      />
-                      <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
-                        {row.lab_name} • {row.lab_country}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <input
+                          type="text"
+                          value={row.raw_test_name}
+                          onChange={(e) => updateRow(row.id, 'raw_test_name', e.target.value)}
+                          className="font-black text-sm text-slate-900 bg-transparent outline-none"
+                        />
+                        {row.is_sample && (
+                          <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-black uppercase tracking-wide">
+                            Sample
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400 font-semibold mt-0.5 truncate">
+                        {row.lab_name} • {row.source_file || row.lab_country}
                       </p>
                     </div>
 
@@ -524,9 +831,13 @@ export default function UploadPage() {
                       >
                         <option value="hba1c">HbA1c</option>
                         <option value="fasting_glucose">Fasting Glucose</option>
+                        <option value="total_cholesterol">Total Cholesterol</option>
                         <option value="triglycerides">Triglycerides</option>
                         <option value="hdl">HDL Cholesterol</option>
                         <option value="ldl">LDL Cholesterol</option>
+                        <option value="vitamin_d">Vitamin D</option>
+                        <option value="tsh">TSH</option>
+                        <option value="creatinine">Creatinine</option>
                         <option value="other_untracked">Other / Untracked</option>
                       </select>
                     </div>
@@ -621,9 +932,16 @@ export default function UploadPage() {
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-blue-600" />
                 <div>
-                  <h3 className="font-extrabold text-sm text-slate-900">
-                    Source Report Verification
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-extrabold text-sm text-slate-900">
+                      Source Report Verification
+                    </h3>
+                    {inspectModalRow.is_sample && (
+                      <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-black uppercase tracking-wide">
+                        Sample
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[11px] text-slate-500">
                     Cross-referencing: {inspectModalRow.raw_test_name}
                   </p>
@@ -649,8 +967,16 @@ export default function UploadPage() {
                   <span>{inspectModalRow.lab_country}</span>
                 </div>
                 <div className="text-[11px] text-slate-400">
-                  Document Source: {inspectModalRow.source_file || 'Direct Laboratory Electronic Export'}
+                  Attached File:{' '}
+                  <span className="text-slate-200 font-semibold">
+                    {inspectModalRow.source_file || 'Direct Laboratory Electronic Export'}
+                  </span>
                 </div>
+                {inspectModalRow.sample_report_text && (
+                  <pre className="bg-slate-950/90 border border-slate-800 p-3 rounded-xl text-[11px] text-slate-300 whitespace-pre-wrap leading-relaxed">
+                    {inspectModalRow.sample_report_text}
+                  </pre>
+                )}
                 <div className="bg-slate-800 p-3 rounded-xl space-y-1">
                   <p className="text-slate-400 text-[10px] uppercase">Original Report Entry</p>
                   <p className="text-emerald-400 font-bold text-sm">
